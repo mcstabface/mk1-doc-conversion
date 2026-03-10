@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Dict, List
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from experts.inventory.inventory_expert import run_inventory
 from experts.containers.zip_expand_expert import expand_zip_artifacts
@@ -11,6 +12,7 @@ from experts.storage.conversion_receipt_expert import persist_conversion_receipt
 from experts.query.artifact_query import find_artifact_id
 from experts.conversion.docx_to_pdf_expert import convert_docx_to_pdf
 from experts.storage.run_manifest_expert import emit_run_manifest
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class ConversionDirector:
@@ -62,7 +64,7 @@ class ConversionDirector:
 
         conversions: List[Dict] = []
 
-        for artifact in convertible:
+        def _convert_one(artifact: Dict) -> Dict:
             artifact_id = find_artifact_id(
                 db_path=self.db_path,
                 logical_path=artifact["logical_path"],
@@ -82,13 +84,11 @@ class ConversionDirector:
                     error_message=None,
                 )
 
-                conversions.append(
-                    {
-                        "logical_path": artifact["logical_path"],
-                        "status": "SUCCESS",
-                        "output_pdf_path": str(pdf_path),
-                    }
-                )
+                return {
+                    "logical_path": artifact["logical_path"],
+                    "status": "SUCCESS",
+                    "output_pdf_path": str(pdf_path),
+                }
 
             except Exception as e:
                 persist_conversion_receipt(
@@ -101,13 +101,17 @@ class ConversionDirector:
                     error_message=str(e),
                 )
 
-                conversions.append(
-                    {
-                        "logical_path": artifact["logical_path"],
-                        "status": "FAILED",
-                        "error": str(e),
-                    }
-                )
+                return {
+                    "logical_path": artifact["logical_path"],
+                    "status": "FAILED",
+                    "error": str(e),
+                }
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(_convert_one, artifact) for artifact in convertible]
+
+            for future in as_completed(futures):
+                conversions.append(future.result())
         success_count = sum(1 for c in conversions if c["status"] == "SUCCESS")
         failed_count = sum(1 for c in conversions if c["status"] == "FAILED")
 
