@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+
+artifacts/db/*.db
+artifacts/pdfs/*.pdf
+artifacts/temp/*
+
+test_source/.~lock*
+.directory
+
+.DS_Store
