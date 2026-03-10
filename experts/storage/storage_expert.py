@@ -91,3 +91,34 @@ def persist_source_artifacts(
             )
 
         conn.commit()
+
+def finalize_run(
+    db_path: str,
+    run_id: int,
+    files_converted: int,
+    files_failed: int,
+    status: str,
+    notes: str,
+) -> None:
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE runs
+            SET finished_utc = ?,
+                files_converted = ?,
+                files_failed = ?,
+                status = ?,
+                notes = ?
+            WHERE run_id = ?
+            """,
+            (
+                int(time.time()),
+                files_converted,
+                files_failed,
+                status,
+                notes,
+                run_id,
+            ),
+        )
+        conn.commit()

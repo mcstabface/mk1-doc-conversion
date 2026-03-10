@@ -1,0 +1,29 @@
+{
+  "changed_count": 2,
+  "conversions": [
+    {
+      "logical_path": "Dog Application 08.22.2018.docx",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/Dog Application 08.22.2018.pdf",
+      "status": "SUCCESS"
+    },
+    {
+      "logical_path": "file-sample_100kB.doc",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/file-sample_100kB.pdf",
+      "status": "SUCCESS"
+    }
+  ],
+  "converted_count": 2,
+  "converted_paths": [
+    "Dog Application 08.22.2018.docx",
+    "file-sample_100kB.doc"
+  ],
+  "convertible_count": 2,
+  "expanded_count": 5,
+  "inventory_count": 4,
+  "new_count": 0,
+  "pdf_output": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs",
+  "run_id": 18,
+  "source_root": "/home/stabby/Documents/mk1-doc-conversion/test_source",
+  "status": "CONVERSION_RUN",
+  "unchanged_count": 3
+}

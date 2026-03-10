@@ -10,6 +10,7 @@ DEFAULT_DB_PATH = ROOT / "artifacts" / "db" / "conversion_memory.db"
 DEFAULT_SCHEMA_PATH = ROOT / "artifacts" / "db" / "schema.sql"
 DEFAULT_PDF_OUTPUT = ROOT / "artifacts" / "pdfs"
 DEFAULT_SOURCE_ROOT = ROOT / "test_source"
+DEFAULT_MANIFEST_DIR = ROOT / "artifacts" / "manifests"
 
 
 def parse_args() -> argparse.Namespace:
@@ -66,6 +67,7 @@ def main() -> None:
     director = ConversionDirector(
         db_path=str(db_path),
         pdf_output=pdf_output,
+        manifest_dir=DEFAULT_MANIFEST_DIR,
     )
 
     result = director.run(source_root)
