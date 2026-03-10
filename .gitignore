@@ -3,7 +3,7 @@ __pycache__/
 *.pyo
 
 artifacts/db/*.db
-artifacts/pdfs/*.pdf
+artifacts/pdfs*/
 artifacts/temp/*
 
 test_source/.~lock*
