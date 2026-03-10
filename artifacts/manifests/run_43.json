@@ -1,0 +1,64 @@
+{
+  "conversions": [],
+  "convert_count": 0,
+  "converted_count": 0,
+  "converted_paths": [],
+  "expanded_count": 8,
+  "failed_count": 0,
+  "inventory_count": 7,
+  "pdf_output": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs",
+  "planned_convert_count": 0,
+  "planned_skip_count": 5,
+  "planned_total_count": 5,
+  "run_id": 43,
+  "skip_count": 5,
+  "skipped": [
+    {
+      "logical_path": "Dog Application 08.22.2018.docx",
+      "output_pdf": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/Dog Application 08.22.2018__fd87c703a57c.pdf",
+      "pdf_hash": "f81d4a635f76cf92deda9fefce0362b1dae51a80c4b93a3440b49a029c01b533",
+      "physical_path": "/home/stabby/Documents/mk1-doc-conversion/test_source/Dog Application 08.22.2018.docx",
+      "registry_run_id": 27,
+      "skip_reason": "unchanged_already_converted",
+      "source_hash": "efdf38e4975326cf13fd09545d79f9c332d36f7bcbb1c377dc4b6c6fc20cab32"
+    },
+    {
+      "logical_path": "file-sample_100kB.doc",
+      "output_pdf": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/file-sample_100kB__0903ffd8c79b.pdf",
+      "pdf_hash": "f1f7dc3643ced15c51e39b7831e67abbcb81707f40bdbdcf1c6d389efb36f0f8",
+      "physical_path": "/home/stabby/Documents/mk1-doc-conversion/test_source/file-sample_100kB.doc",
+      "registry_run_id": 27,
+      "skip_reason": "unchanged_already_converted",
+      "source_hash": "3313a67beee2b62db28eb75137d0d8a9def1c1d3616b0553ec292d0b6b84a645"
+    },
+    {
+      "logical_path": "folderA/file-sample_100kB.doc",
+      "output_pdf": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/file-sample_100kB__8f57d0f100b7.pdf",
+      "pdf_hash": "8dce0623a1cf0247444ca8e11d4b50243034d41fa6c67eccb4ea0c8cc447707b",
+      "physical_path": "/home/stabby/Documents/mk1-doc-conversion/test_source/folderA/file-sample_100kB.doc",
+      "registry_run_id": 34,
+      "skip_reason": "unchanged_already_converted",
+      "source_hash": "534e386de0d248b212d865db1c74f725f0c58e46ba91aa42e28b0aec150e6c21"
+    },
+    {
+      "logical_path": "folderB/Dog Application 08.22.2018.docx",
+      "output_pdf": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/Dog Application 08.22.2018__875424dfb639.pdf",
+      "pdf_hash": "10e1dce1fe52a4ab8d110a26f5e75b9350be06290d8327c92ff6e8aefcb2e036",
+      "physical_path": "/home/stabby/Documents/mk1-doc-conversion/test_source/folderB/Dog Application 08.22.2018.docx",
+      "registry_run_id": 27,
+      "skip_reason": "unchanged_already_converted",
+      "source_hash": "efdf38e4975326cf13fd09545d79f9c332d36f7bcbb1c377dc4b6c6fc20cab32"
+    },
+    {
+      "logical_path": "folderB/file-sample_100kB.doc",
+      "output_pdf": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/file-sample_100kB__1884ebecf54d.pdf",
+      "pdf_hash": "b82315dd9d6861cb63e6f5135eb088538b61ae4f6d05a2aed324137e5edadfec",
+      "physical_path": "/home/stabby/Documents/mk1-doc-conversion/test_source/folderB/file-sample_100kB.doc",
+      "registry_run_id": 27,
+      "skip_reason": "unchanged_already_converted",
+      "source_hash": "efb231a682b88db085a83870ed1fe8141c36e731e83be8d3610c2e12d8773acc"
+    }
+  ],
+  "source_root": "/home/stabby/Documents/mk1-doc-conversion/test_source",
+  "status": "CONVERSION_RUN_COMPLETE"
+}

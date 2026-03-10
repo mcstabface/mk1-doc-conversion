@@ -1,0 +1,24 @@
+{
+  "changed_count": 1,
+  "conversions": [
+    {
+      "error": "[Errno 2] No such file or directory: '/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/mk1-windows-exe.pdf' -> '/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/mk1-windows-exe__fe45f86ccd43.pdf'",
+      "logical_path": "mk1-windows-exe.zip",
+      "status": "FAILED"
+    }
+  ],
+  "converted_count": 0,
+  "converted_paths": [],
+  "expanded_count": 8,
+  "failed_count": 1,
+  "inventory_count": 7,
+  "new_count": 0,
+  "pdf_output": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs",
+  "planned_convert_count": 1,
+  "planned_skip_count": 7,
+  "planned_total_count": 8,
+  "run_id": 30,
+  "source_root": "/home/stabby/Documents/mk1-doc-conversion/test_source",
+  "status": "CONVERSION_RUN_COMPLETE",
+  "unchanged_count": 7
+}

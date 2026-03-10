@@ -1,0 +1,73 @@
+{
+  "changed_count": 8,
+  "conversions": [
+    {
+      "logical_path": "Dog Application 08.22.2018.docx",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/Dog Application 08.22.2018__fd87c703a57c.pdf",
+      "physical_path": "/home/stabby/Documents/mk1-doc-conversion/test_source/Dog Application 08.22.2018.docx",
+      "source_hash": "efdf38e4975326cf13fd09545d79f9c332d36f7bcbb1c377dc4b6c6fc20cab32",
+      "status": "SUCCESS"
+    },
+    {
+      "logical_path": "Dog Application 08.22.2018.zip::Dog Application 08.22.2018.docx",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/Dog Application 08.22.2018__fdb72ec6bd11.pdf",
+      "physical_path": "/home/stabby/Documents/mk1-doc-conversion/test_source/Dog Application 08.22.2018.zip",
+      "source_hash": "6a28738817ea6e9b6d7c985bbfb6a93f3c4d93e59ae92b1201f597c99fe0d887",
+      "status": "SUCCESS"
+    },
+    {
+      "error": "[Errno 2] No such file or directory: '/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/Dog Application 08.22.2018.pdf' -> '/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/Dog Application 08.22.2018__fdb72ec6bd11.pdf'",
+      "logical_path": "Dog Application 08.22.2018.zip::Dog Application 08.22.2018.docx",
+      "status": "FAILED"
+    },
+    {
+      "logical_path": "file-sample_100kB.doc",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/file-sample_100kB__0903ffd8c79b.pdf",
+      "physical_path": "/home/stabby/Documents/mk1-doc-conversion/test_source/file-sample_100kB.doc",
+      "source_hash": "3313a67beee2b62db28eb75137d0d8a9def1c1d3616b0553ec292d0b6b84a645",
+      "status": "SUCCESS"
+    },
+    {
+      "logical_path": "folderA/file-sample_100kB.doc",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/file-sample_100kB__8f57d0f100b7.pdf",
+      "physical_path": "/home/stabby/Documents/mk1-doc-conversion/test_source/folderA/file-sample_100kB.doc",
+      "source_hash": "f371e65376a17d10f2a6a8fac9579883a22a1c34e52ae6ffac7ffb176fabbc7f",
+      "status": "SUCCESS"
+    },
+    {
+      "logical_path": "folderB/Dog Application 08.22.2018.docx",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/Dog Application 08.22.2018__875424dfb639.pdf",
+      "physical_path": "/home/stabby/Documents/mk1-doc-conversion/test_source/folderB/Dog Application 08.22.2018.docx",
+      "source_hash": "efdf38e4975326cf13fd09545d79f9c332d36f7bcbb1c377dc4b6c6fc20cab32",
+      "status": "SUCCESS"
+    },
+    {
+      "logical_path": "folderB/file-sample_100kB.doc",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/file-sample_100kB__1884ebecf54d.pdf",
+      "physical_path": "/home/stabby/Documents/mk1-doc-conversion/test_source/folderB/file-sample_100kB.doc",
+      "source_hash": "efb231a682b88db085a83870ed1fe8141c36e731e83be8d3610c2e12d8773acc",
+      "status": "SUCCESS"
+    }
+  ],
+  "converted_count": 6,
+  "converted_paths": [
+    "Dog Application 08.22.2018.docx",
+    "Dog Application 08.22.2018.zip::Dog Application 08.22.2018.docx",
+    "file-sample_100kB.doc",
+    "folderA/file-sample_100kB.doc",
+    "folderB/Dog Application 08.22.2018.docx",
+    "folderB/file-sample_100kB.doc"
+  ],
+  "expanded_count": 8,
+  "failed_count": 1,
+  "inventory_count": 7,
+  "new_count": 0,
+  "pdf_output": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs",
+  "planned_convert_count": 8,
+  "planned_skip_count": 0,
+  "planned_total_count": 8,
+  "run_id": 27,
+  "source_root": "/home/stabby/Documents/mk1-doc-conversion/test_source",
+  "status": "CONVERSION_RUN_COMPLETE",
+  "unchanged_count": 0
+}

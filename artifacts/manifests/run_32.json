@@ -1,0 +1,18 @@
+{
+  "changed_count": 0,
+  "conversions": [],
+  "converted_count": 0,
+  "converted_paths": [],
+  "expanded_count": 8,
+  "failed_count": 0,
+  "inventory_count": 7,
+  "new_count": 0,
+  "pdf_output": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs",
+  "planned_convert_count": 0,
+  "planned_skip_count": 5,
+  "planned_total_count": 8,
+  "run_id": 32,
+  "source_root": "/home/stabby/Documents/mk1-doc-conversion/test_source",
+  "status": "CONVERSION_RUN_COMPLETE",
+  "unchanged_count": 5
+}

@@ -1,0 +1,28 @@
+{
+  "changed_count": 1,
+  "conversions": [
+    {
+      "logical_path": "folderA/file-sample_100kB.doc",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/file-sample_100kB__8f57d0f100b7.pdf",
+      "physical_path": "/home/stabby/Documents/mk1-doc-conversion/test_source/folderA/file-sample_100kB.doc",
+      "source_hash": "534e386de0d248b212d865db1c74f725f0c58e46ba91aa42e28b0aec150e6c21",
+      "status": "SUCCESS"
+    }
+  ],
+  "converted_count": 1,
+  "converted_paths": [
+    "folderA/file-sample_100kB.doc"
+  ],
+  "expanded_count": 8,
+  "failed_count": 0,
+  "inventory_count": 7,
+  "new_count": 0,
+  "pdf_output": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs",
+  "planned_convert_count": 1,
+  "planned_skip_count": 4,
+  "planned_total_count": 8,
+  "run_id": 34,
+  "source_root": "/home/stabby/Documents/mk1-doc-conversion/test_source",
+  "status": "CONVERSION_RUN_COMPLETE",
+  "unchanged_count": 4
+}

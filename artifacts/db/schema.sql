@@ -44,6 +44,27 @@ CREATE TABLE IF NOT EXISTS conversions (
     FOREIGN KEY(run_id) REFERENCES runs(run_id)
 );
 
+CREATE TABLE IF NOT EXISTS conversion_decisions (
+    decision_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL,
+    artifact_id INTEGER NOT NULL,
+    decision_type TEXT NOT NULL,
+    reason TEXT,
+    source_hash TEXT,
+    output_pdf_path TEXT,
+    pdf_hash TEXT,
+    registry_run_id INTEGER,
+    created_utc INTEGER NOT NULL,
+    FOREIGN KEY(run_id) REFERENCES runs(run_id),
+    FOREIGN KEY(artifact_id) REFERENCES source_artifacts(artifact_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversion_decisions_run_id
+ON conversion_decisions(run_id);
+
+CREATE INDEX IF NOT EXISTS idx_conversion_decisions_artifact_id
+ON conversion_decisions(artifact_id);
+
 CREATE INDEX IF NOT EXISTS idx_source_artifacts_logical_path
     ON source_artifacts(logical_path);
 

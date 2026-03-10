@@ -78,10 +78,9 @@ def main() -> None:
     print(f"pdf_output: {pdf_output}")
     print(f"inventory_count: {result['inventory_count']}")
     print(f"expanded_count: {result['expanded_count']}")
-    print(f"new_count: {result['new_count']}")
-    print(f"changed_count: {result['changed_count']}")
-    print(f"unchanged_count: {result['unchanged_count']}")
-    print(f"convertible_count: {result['convertible_count']}")
+    print(f"convert_count: {result['convert_count']}")
+    print(f"skip_count: {result['skip_count']}")
+    print(f"planned_convert_count: {result.get('planned_convert_count', 0)}")
 
     print("\nCONVERSIONS")
     if result["conversions"]:
