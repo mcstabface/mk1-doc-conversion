@@ -59,6 +59,22 @@ CREATE TABLE IF NOT EXISTS conversion_decisions (
     FOREIGN KEY(artifact_id) REFERENCES source_artifacts(artifact_id)
 );
 
+CREATE TABLE IF NOT EXISTS search_context_registry (
+    source_path TEXT PRIMARY KEY,
+    source_hash TEXT NOT NULL,
+    artifact_hash TEXT NOT NULL,
+    artifact_path TEXT NOT NULL,
+    artifact_type TEXT NOT NULL,
+    created_utc INTEGER NOT NULL,
+    run_id INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_context_registry_source_hash
+    ON search_context_registry(source_hash);
+
+CREATE INDEX IF NOT EXISTS idx_search_context_registry_run_id
+    ON search_context_registry(run_id);
+    
 CREATE INDEX IF NOT EXISTS idx_conversion_decisions_run_id
 ON conversion_decisions(run_id);
 

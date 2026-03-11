@@ -9,11 +9,15 @@ from experts.query.convertible_query import select_convertible_artifacts
 from experts.storage.storage_expert import create_run, persist_source_artifacts, finalize_run
 from experts.storage.conversion_receipt_expert import persist_conversion_receipt
 from experts.query.artifact_query import find_artifact_id
+from experts.conversion.doc_to_search_context_expert import DocToSearchContextExpert
 from experts.conversion.docx_to_pdf_expert import convert_docx_to_pdf
 from experts.storage.run_manifest_expert import emit_run_manifest
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from experts.conversion.fingerprint_expert import FingerprintExpert
+from experts.conversion.search_context_registry_expert import SearchContextRegistryExpert
 from experts.conversion.conversion_registry_expert import ConversionRegistryExpert
+from experts.conversion.search_context_registry_expert import SearchContextRegistryExpert
+
 
 import hashlib
 import sqlite3
@@ -21,10 +25,11 @@ import time
 
 
 class ConversionDirector:
-    def __init__(self, db_path: str, pdf_output: Path, manifest_dir: Path):
+    def __init__(self, db_path: str, pdf_output: Path, manifest_dir: Path, mode: str = "pdf"):
         self.db_path = db_path
         self.pdf_output = pdf_output
         self.manifest_dir = manifest_dir
+        self.mode = mode
 
     def _expand_inventory(self, inventory: List[Dict]) -> List[Dict]:
         expanded: List[Dict] = []
@@ -129,11 +134,57 @@ class ConversionDirector:
         finally:
             conn.close()
 
+    def _persist_search_context_registry_row(
+        self,
+        *,
+        source_path: str,
+        source_hash: str,
+        artifact_path: str,
+        artifact_type: str,
+        run_id: int,
+    ) -> None:
+        artifact_hash = self._sha256_file(artifact_path)
+        created_utc = int(time.time())
+
+        conn = sqlite3.connect(self.db_path)
+        try:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO search_context_registry (
+                    source_path,
+                    source_hash,
+                    artifact_hash,
+                    artifact_path,
+                    artifact_type,
+                    created_utc,
+                    run_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    source_path,
+                    source_hash,
+                    artifact_hash,
+                    artifact_path,
+                    artifact_type,
+                    created_utc,
+                    run_id,
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
     def run(self, source_root: Path) -> Dict:
         inventory = run_inventory(source_root)
         expanded = self._expand_inventory(inventory)
         fingerprint_expert = FingerprintExpert()
-        registry_expert = ConversionRegistryExpert(db_path=self.db_path)
+        if self.mode == "context":
+            registry_expert = SearchContextRegistryExpert(db_path=self.db_path)
+        elif self.mode == "pdf":
+            registry_expert = ConversionRegistryExpert(db_path=self.db_path)
+        else:
+            raise ValueError(f"Unsupported mode: {self.mode}")
+
         convertible_inventory = [
             a["physical_path"]
             for a in expanded
@@ -152,6 +203,12 @@ class ConversionDirector:
             "db_path": self.db_path,
         }
         registry_result = registry_expert.run(registry_payload)
+
+        search_context_expert = None
+        if self.mode == "context":
+            search_context_expert = DocToSearchContextExpert()
+
+        search_context_expert = DocToSearchContextExpert()
         artifact_by_path = {
             a["physical_path"]: a
             for a in expanded
@@ -190,8 +247,9 @@ class ConversionDirector:
             artifact_copy["source_hash"] = fp.get("source_hash")
             artifact_copy["size_bytes"] = fp.get("size_bytes")
             artifact_copy["skip_reason"] = item.get("reason")
-            artifact_copy["output_pdf"] = item.get("output_pdf")
-            artifact_copy["pdf_hash"] = item.get("pdf_hash")
+            artifact_copy["artifact_path"] = item.get("artifact_path")
+            artifact_copy["artifact_hash"] = item.get("artifact_hash")
+            artifact_copy["artifact_type"] = item.get("artifact_type")
             artifact_copy["registry_run_id"] = item.get("run_id")
             planned_skip_artifacts.append(artifact_copy)
         planned_convert_count = len(planned_convert_artifacts)
@@ -199,6 +257,8 @@ class ConversionDirector:
         planned_total_count = len(convertible_inventory)
 
         convertible = list(planned_convert_artifacts)
+
+        run_id = None
 
         run_id = create_run(
             db_path=self.db_path,
@@ -215,149 +275,261 @@ class ConversionDirector:
                 f"planned_skip={planned_skip_count}"
             ),
         )
+        try:
+            artifacts_to_persist = []
+            for artifact in planned_convert_artifacts + planned_skip_artifacts:
+                artifacts_to_persist.append(
+                    {
+                        "physical_path": artifact["physical_path"],
+                        "container_path": artifact.get("container_path"),
+                        "logical_path": artifact["logical_path"],
+                        "source_type": artifact["source_type"],
+                        "size_bytes": artifact["size_bytes"],
+                        "modified_utc": artifact.get("modified_utc"),
+                        "sha256": artifact["source_hash"],
+                    }
+                )
 
-        skip_decision_count = 0
-        created_utc = int(time.time())
+            persist_source_artifacts(
+                db_path=self.db_path,
+                run_id=run_id,
+                artifacts=artifacts_to_persist,
+            )
 
-        with sqlite3.connect(self.db_path) as conn:
-            for artifact in planned_skip_artifacts:
+            skip_decision_count = 0
+            created_utc = int(time.time())
+
+            with sqlite3.connect(self.db_path) as conn:
+                for artifact in planned_skip_artifacts:
+                    artifact_id = find_artifact_id(
+                    db_path=self.db_path,
+                    logical_path=artifact["logical_path"],
+                    sha256=artifact["source_hash"],
+                )
+
+                    if artifact_id is None:
+                        raise ValueError(
+                            f"Could not resolve artifact_id for planned skip: {artifact.get('physical_path')}"
+                        )
+
+                    self.record_conversion_decision(
+                        conn,
+                        run_id=run_id,
+                        artifact_id=artifact_id,
+                        decision_type="SKIP",
+                        reason=artifact.get("skip_reason"),
+                        source_hash=artifact.get("source_hash"),
+                        output_pdf_path=artifact.get("artifact_path"),
+                        pdf_hash=artifact.get("artifact_hash"),
+                        registry_run_id=artifact.get("registry_run_id"),
+                        created_utc=created_utc,
+                    )
+                    skip_decision_count += 1
+
+                conn.commit()
+            conversions: List[Dict] = []
+
+            def _convert_one(artifact: Dict) -> Dict:
                 artifact_id = find_artifact_id(
                     db_path=self.db_path,
                     logical_path=artifact["logical_path"],
-                    sha256=artifact["sha256"],
+                    sha256=artifact["source_hash"],
                 )
 
                 if artifact_id is None:
-                    raise ValueError(
-                        f"Could not resolve artifact_id for planned skip: {artifact.get('physical_path')}"
+                    raise RuntimeError(
+                        f"Artifact lookup failed for {artifact['logical_path']} hash={artifact['source_hash']}"
                     )
 
-                self.record_conversion_decision(
-                    conn,
-                    run_id=run_id,
-                    artifact_id=artifact_id,
-                    decision_type="SKIP",
-                    reason=artifact.get("skip_reason"),
-                    source_hash=artifact.get("source_hash"),
-                    output_pdf_path=artifact.get("output_pdf"),
-                    pdf_hash=artifact.get("pdf_hash"),
-                    registry_run_id=artifact.get("registry_run_id"),
-                    created_utc=created_utc,
-                )
-                skip_decision_count += 1
+                try:
+                    if self.mode == "context":
+                        expert_payload = {
+                            "physical_path": artifact["physical_path"],
+                            "logical_path": artifact["logical_path"],
+                            "source_hash": artifact["source_hash"],
+                            "run_id": run_id,
+                            "artifact_dir": str(self.pdf_output.parent / "search_context"),
+                        }
 
-            conn.commit()
-        conversions: List[Dict] = []
+                        expert_result = search_context_expert.run(expert_payload)
 
-        def _convert_one(artifact: Dict) -> Dict:
-            artifact_id = find_artifact_id(
+                        self._persist_search_context_registry_row(
+                            source_path=artifact["physical_path"],
+                            source_hash=artifact["source_hash"],
+                            artifact_path=str(expert_result["artifact_path"]),
+                            artifact_type=expert_result.get("artifact_type", "search_context_document"),
+                            run_id=run_id,
+                        )
+
+                        persist_conversion_receipt(
+                            db_path=self.db_path,
+                            artifact_id=artifact_id,
+                            run_id=run_id,
+                            output_pdf_path=str(expert_result["artifact_path"]),
+                            converter_used=(
+                                "doc-to-search-context-v1"
+                                if self.mode == "context"
+                                else "docx-to-pdf"
+                            ),
+                            conversion_status="SUCCESS",
+                            error_message=None,
+                        )
+
+                        return {
+                            "logical_path": artifact["logical_path"],
+                            "physical_path": artifact["physical_path"],
+                            "source_hash": artifact["source_hash"],
+                            "status": "SUCCESS",
+                            "artifact_path": str(expert_result["artifact_path"]),
+                            "artifact_type": expert_result.get("artifact_type"),
+                            "chunk_count": expert_result.get("chunk_count", 0),
+                        }
+
+                    elif self.mode == "pdf":
+                        output_pdf_path = convert_docx_to_pdf(artifact, self.pdf_output)
+
+                        self._persist_conversion_registry_row(
+                            source_path=artifact["physical_path"],
+                            source_hash=artifact["source_hash"],
+                            output_pdf=output_pdf_path,
+                            run_id=run_id,
+                        )
+
+                        persist_conversion_receipt(
+                            db_path=self.db_path,
+                            artifact_id=artifact_id,
+                            run_id=run_id,
+                            output_pdf_path=output_pdf_path,
+                            converter_used="docx-to-pdf",
+                            conversion_status="SUCCESS",
+                            error_message=None,
+                        )
+
+                        return {
+                            "logical_path": artifact["logical_path"],
+                            "physical_path": artifact["physical_path"],
+                            "source_hash": artifact["source_hash"],
+                            "status": "SUCCESS",
+                            "output_pdf_path": output_pdf_path,
+                        }
+
+                    else:
+                        raise ValueError(f"Unsupported mode: {self.mode}")
+                except Exception as e:
+                    persist_conversion_receipt(
+                        db_path=self.db_path,
+                        artifact_id=artifact_id,
+                        run_id=run_id,
+                        output_pdf_path="",
+                        converter_used=(
+                            "doc-to-search-context-v1"
+                            if self.mode == "context"
+                            else "docx-to-pdf"
+                        ),
+                        conversion_status="FAILED",
+                        error_message=str(e),
+                    )
+
+                    return {
+                        "logical_path": artifact["logical_path"],
+                        "status": "FAILED",
+                        "error": str(e),
+                    }
+
+            failures = [c for c in conversions if c["status"] == "FAILED"]
+            
+            finalize_run(
                 db_path=self.db_path,
-                logical_path=artifact["logical_path"],
-                sha256=artifact["sha256"],
+                run_id=run_id,
+                files_converted=len([c for c in conversions if c["status"] == "SUCCESS"]),
+                files_failed=len(failures),
+                status="SUCCESS" if not failures else "FAILED",
+                notes=(
+                    f"artifact_mode=search_context "
+                    f"planned_convert={planned_convert_count} "
+                    f"planned_skip={planned_skip_count} "
+                    f"completed_success={len([c for c in conversions if c['status'] == 'SUCCESS'])} "
+                    f"completed_failed={len(failures)}"
+                ),
             )
 
-            try:
-                pdf_path = convert_docx_to_pdf(artifact, self.pdf_output)
+            emit_run_manifest(
+                run_id=run_id,
+                manifest_dir=self.manifest_dir,
+                conversions=conversions,
+            )
 
-                persist_conversion_receipt(
-                    db_path=self.db_path,
-                    artifact_id=artifact_id,
-                    run_id=run_id,
-                    output_pdf_path=str(pdf_path),
-                    converter_used="libreoffice-headless",
-                    conversion_status="SUCCESS",
-                    error_message=None,
-                )
+            return {
+                "run_id": run_id,
+                "converted_paths": [
+                    c["logical_path"] for c in conversions if c["status"] == "SUCCESS"
+                ],
+                "failed": failures,
+            }
 
-                self._persist_conversion_registry_row(
-                    source_path=artifact["physical_path"],
-                    source_hash=artifact["source_hash"],
-                    output_pdf=str(pdf_path),
-                    run_id=run_id,
-                )
-
-                return {
+        except Exception:
+            finalize_run(
+                db_path=self.db_path,
+                run_id=run_id,
+                files_converted=0,
+                files_failed=1,
+                status="FAILED",
+                notes="artifact_mode=search_context director_exception=1",
+            )
+            skipped = [
+                {
                     "logical_path": artifact["logical_path"],
                     "physical_path": artifact["physical_path"],
                     "source_hash": artifact["source_hash"],
-                    "status": "SUCCESS",
-                    "output_pdf_path": str(pdf_path),
+                    "skip_reason": artifact.get("skip_reason"),
+                    "artifact_path": artifact.get("artifact_path"),
+                    "artifact_hash": artifact.get("artifact_hash"),
+                    "artifact_type": artifact.get("artifact_type"),
+                    "registry_run_id": artifact.get("registry_run_id"),
                 }
+                for artifact in planned_skip_artifacts
+            ]
 
-            except Exception as e:
-                persist_conversion_receipt(
-                    db_path=self.db_path,
-                    artifact_id=artifact_id,
-                    run_id=run_id,
-                    output_pdf_path="",
-                    converter_used="libreoffice-headless",
-                    conversion_status="FAILED",
-                    error_message=str(e),
-                )
-
-                return {
-                    "logical_path": artifact["logical_path"],
-                    "status": "FAILED",
-                    "error": str(e),
-                }
-
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = [executor.submit(_convert_one, artifact) for artifact in convertible]
-
-            for future in as_completed(futures):
-                conversions.append(future.result())
-            
-            conversions.sort(key=lambda c: c["logical_path"])
-        success_count = sum(1 for c in conversions if c["status"] == "SUCCESS")
-        failed_count = sum(1 for c in conversions if c["status"] == "FAILED")
-
-        finalize_run(
-            db_path=self.db_path,
-            run_id=run_id,
-            files_converted=success_count,
-            files_failed=failed_count,
-            status="CONVERSION_RUN_COMPLETE",
-            notes=(
-                f"convertible_total={planned_total_count} "
-                f"planned_convert={planned_convert_count} "
-                f"planned_skip={planned_skip_count} "
-                f"converted={success_count} "
-                f"failed={failed_count}"
-            ),
-        )
-
-        skipped = [
-            {
-                "logical_path": artifact["logical_path"],
-                "physical_path": artifact["physical_path"],
-                "source_hash": artifact["source_hash"],
-                "skip_reason": artifact.get("skip_reason"),
-                "output_pdf": artifact.get("output_pdf"),
-                "pdf_hash": artifact.get("pdf_hash"),
-                "registry_run_id": artifact.get("registry_run_id"),
+            result = {
+                "run_id": run_id,
+                "status": "CONVERSION_RUN_COMPLETE",
+                "failed_count": len(failures),
+                "source_root": str(source_root),
+                "artifact_output": str(self.pdf_output.parent / "search_context"),
+                "inventory_count": len(inventory),
+                "expanded_count": len(expanded),
+                "planned_total_count": planned_total_count,
+                "planned_convert_count": planned_convert_count,
+                "planned_skip_count": planned_skip_count,
+                "convert_count": planned_convert_count,
+                "skip_count": planned_skip_count,
+                "converted_count": len([c for c in conversions if c["status"] == "SUCCESS"]),
+                "converted_paths": [
+                    c["logical_path"] for c in conversions if c["status"] == "SUCCESS"
+                ],
+                "conversions": conversions,
+                "skipped": skipped,
             }
-            for artifact in planned_skip_artifacts
-        ]
 
-        result = {
-            "run_id": run_id,
-            "status": "CONVERSION_RUN_COMPLETE",
-            "failed_count": failed_count,
-            "source_root": str(source_root),
-            "pdf_output": str(self.pdf_output),
-            "inventory_count": len(inventory),
-            "expanded_count": len(expanded),
-            "planned_total_count": planned_total_count,
-            "planned_convert_count": planned_convert_count,
-            "planned_skip_count": planned_skip_count,
-            "convert_count": planned_convert_count,
-            "skip_count": planned_skip_count,
-            "converted_count": sum(1 for c in conversions if c["status"] == "SUCCESS"),
-            "converted_paths": [c["logical_path"] for c in conversions if c["status"] == "SUCCESS"],
-            "conversions": conversions,
-            "skipped": skipped,
-        }
+            emit_run_manifest(self.manifest_dir, result)
 
-        emit_run_manifest(self.manifest_dir, result)
+            print(f"DEBUG director returning result keys: {list(result.keys())}")
 
-        return result
+            return result
+
+        except Exception as e:
+            if run_id is not None:
+                finalize_run(
+                    db_path=self.db_path,
+                    run_id=run_id,
+                    files_converted=0,
+                    files_failed=0,
+                    status="CONVERSION_RUN_ABORTED",
+                    notes=(
+                        f"convertible_total={planned_total_count} "
+                        f"planned_convert={planned_convert_count} "
+                        f"planned_skip={planned_skip_count} "
+                        f"aborted_error={str(e)}"
+                    ),
+                )
+            raise

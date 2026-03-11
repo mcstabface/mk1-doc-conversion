@@ -1,6 +1,12 @@
 __pycache__/
 *.pyc
-*.pyo
+artifacts/
+*.db
+*.sqlite
+*.doc
+*.docx
+*.zip
+*.7z
 
 artifacts/db/*.db
 artifacts/pdfs*/

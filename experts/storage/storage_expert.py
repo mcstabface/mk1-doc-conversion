@@ -75,6 +75,14 @@ def persist_source_artifacts(
                     is_active
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(logical_path, sha256) DO UPDATE SET
+                    physical_path = excluded.physical_path,
+                    container_path = excluded.container_path,
+                    source_type = excluded.source_type,
+                    size_bytes = excluded.size_bytes,
+                    modified_utc = excluded.modified_utc,
+                    last_seen_run_id = excluded.last_seen_run_id,
+                    is_active = excluded.is_active
                 """,
                 (
                     artifact["physical_path"],

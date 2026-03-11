@@ -15,6 +15,7 @@ def fetch_recent_runs(db_path: str, limit: int = 10) -> List[Tuple]:
                 files_skipped,
                 notes
             FROM runs
+            WHERE status IN ('CONVERSION_RUN_COMPLETE', 'CONVERSION_RUN_ABORTED')
             ORDER BY run_id DESC
             LIMIT ?
             """,

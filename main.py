@@ -1,16 +1,37 @@
 from pathlib import Path
 import argparse
 import sqlite3
+import sys
 
+from pathlib import Path
 from director.conversion_director import ConversionDirector
 from experts.query.run_query import fetch_recent_runs
+from experts.conversion.docx_to_pdf_expert import ensure_libreoffice_available
 
-ROOT = Path(__file__).resolve().parent
-DEFAULT_DB_PATH = ROOT / "artifacts" / "db" / "conversion_memory.db"
-DEFAULT_SCHEMA_PATH = ROOT / "artifacts" / "db" / "schema.sql"
-DEFAULT_PDF_OUTPUT = ROOT / "artifacts" / "pdfs"
-DEFAULT_SOURCE_ROOT = ROOT / "test_source"
-DEFAULT_MANIFEST_DIR = ROOT / "artifacts" / "manifests"
+
+def get_runtime_root() -> Path:
+    """
+    Return the directory where the program should read/write runtime artifacts.
+
+    Works both when running from source and when packaged with PyInstaller.
+    """
+
+    if getattr(sys, "frozen", False):
+        # Running as a bundled executable
+        return Path(sys.executable).parent
+    else:
+        # Running from source
+        return Path(__file__).resolve().parent
+
+runtime_root = get_runtime_root()
+
+DEFAULT_DB_PATH = runtime_root / "artifacts" / "db" / "conversion_memory.db"
+DEFAULT_SCHEMA_PATH = runtime_root / "artifacts" / "db" / "schema.sql"
+DEFAULT_PDF_OUTPUT = runtime_root / "artifacts" / "pdfs"
+DEFAULT_SOURCE_ROOT = runtime_root / "test_source"
+DEFAULT_MANIFEST_DIR = runtime_root / "artifacts" / "manifests"
+
+
 
 
 def parse_args() -> argparse.Namespace:
@@ -42,8 +63,16 @@ def parse_args() -> argparse.Namespace:
         default=10,
         help="Number of recent runs to display.",
     )
+    parser.add_argument(
+        "--mode",
+        choices=["pdf", "context"],
+        default="pdf",
+        help="Conversion mode: pdf (default) or context",
+    )
+
     return parser.parse_args()
 
+    mode = args.mode
 
 def ensure_db(db_path: Path, schema_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -62,37 +91,65 @@ def main() -> None:
     pdf_output = Path(args.pdf_output).resolve()
     schema_path = DEFAULT_SCHEMA_PATH
 
+    ensure_libreoffice_available()
+
+    pdf_output.mkdir(parents=True, exist_ok=True)
+    manifest_dir = Path("./artifacts/manifests")
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    mode = args.mode
+    DEFAULT_MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
+
     ensure_db(db_path, schema_path)
 
     director = ConversionDirector(
-        db_path=str(db_path),
+        db_path=db_path,
         pdf_output=pdf_output,
-        manifest_dir=DEFAULT_MANIFEST_DIR,
+        manifest_dir=manifest_dir,
+        mode=mode,
     )
 
     result = director.run(source_root)
 
     print("\nRUN RESULT")
     print(f"run_id: {result['run_id']}")
+    print(f"status: {result['status']}")
     print(f"source_root: {source_root}")
-    print(f"pdf_output: {pdf_output}")
+    print(f"artifact_output: {result.get('artifact_output', pdf_output)}")
     print(f"inventory_count: {result['inventory_count']}")
     print(f"expanded_count: {result['expanded_count']}")
-    print(f"convert_count: {result['convert_count']}")
-    print(f"skip_count: {result['skip_count']}")
+    print(f"planned_total_count: {result.get('planned_total_count', 0)}")
     print(f"planned_convert_count: {result.get('planned_convert_count', 0)}")
+    print(f"planned_skip_count: {result.get('planned_skip_count', 0)}")
+    print(f"converted_count: {result.get('converted_count', 0)}")
+    print(f"failed_count: {result.get('failed_count', 0)}")
 
     print("\nCONVERSIONS")
     if result["conversions"]:
         for conversion in result["conversions"]:
             if conversion["status"] == "SUCCESS":
-                print(f"SUCCESS | {conversion['logical_path']} | {conversion['output_pdf_path']}")
+                print(
+                    f"SUCCESS | {conversion['logical_path']} | "
+                    f"{conversion.get('artifact_path', conversion.get('output_pdf_path', ''))}"
+                )
             else:
                 print(f"FAILED | {conversion['logical_path']} | {conversion['error']}")
     else:
         print("No conversions executed.")
 
-    print("\nRECENT RUNS")
+    print("\nSKIPPED")
+    skipped = result.get("skipped", [])
+    if skipped:
+        for item in skipped:
+            print(
+                f"SKIP | {item['logical_path']} | "
+                f"reason={item.get('skip_reason', 'unknown')} | "
+                f"prior_artifact={item.get('artifact_path', '')} | "
+                f"artifact_type={item.get('artifact_type', '')}"
+            )
+    else:
+        print("No skipped items.")
+
+    print("\nRECENT RUNS (AUDIT)")
     for row in fetch_recent_runs(str(db_path), limit=args.recent_runs):
         print(row)
 
