@@ -1,6 +1,7 @@
 from typing import Dict, List
 import zipfile
 from pathlib import Path
+import json
 
 from experts.inventory.inventory_expert import run_inventory
 from experts.containers.zip_expand_expert import expand_zip_artifacts
@@ -17,6 +18,7 @@ from experts.conversion.fingerprint_expert import FingerprintExpert
 from experts.conversion.search_context_registry_expert import SearchContextRegistryExpert
 from experts.conversion.conversion_registry_expert import ConversionRegistryExpert
 from experts.conversion.search_context_registry_expert import SearchContextRegistryExpert
+from experts.llm_search.search_context_chunk_expert import SearchContextChunkExpert
 
 
 import hashlib
@@ -205,10 +207,11 @@ class ConversionDirector:
         registry_result = registry_expert.run(registry_payload)
 
         search_context_expert = None
+        chunk_expert = None
         if self.mode == "context":
             search_context_expert = DocToSearchContextExpert()
+            chunk_expert = SearchContextChunkExpert()
 
-        search_context_expert = DocToSearchContextExpert()
         artifact_by_path = {
             a["physical_path"]: a
             for a in expanded
@@ -361,16 +364,41 @@ class ConversionDirector:
                             run_id=run_id,
                         )
 
+                        with open(expert_result["artifact_path"], "r", encoding="utf-8") as f:
+                            chunk_input_document = json.load(f)
+
+                        chunk_payload = {
+                            "search_context_document": chunk_input_document,
+                        }
+
+                        chunk_result = chunk_expert.run(chunk_payload)
+                        chunk_artifact = chunk_result["search_context_chunks"]
+
+                        chunk_result = chunk_expert.run(chunk_payload)
+                        chunk_artifact = chunk_result["search_context_chunks"]
+
+                        chunk_artifact_dir = self.pdf_output.parent / "search_context_chunks"
+                        chunk_artifact_dir.mkdir(parents=True, exist_ok=True)
+
+                        chunk_artifact_path = chunk_artifact_dir / f"{artifact['source_hash']}.search_context_chunks.json"
+
+                        with open(chunk_artifact_path, "w", encoding="utf-8") as f:
+                            json.dump(chunk_artifact, f, indent=2, ensure_ascii=False)
+
+                        self._persist_search_context_registry_row(
+                            source_path=artifact["physical_path"],
+                            source_hash=artifact["source_hash"],
+                            artifact_path=str(chunk_artifact_path),
+                            artifact_type="search_context_chunks",
+                            run_id=run_id,
+                        )
+
                         persist_conversion_receipt(
                             db_path=self.db_path,
                             artifact_id=artifact_id,
                             run_id=run_id,
                             output_pdf_path=str(expert_result["artifact_path"]),
-                            converter_used=(
-                                "doc-to-search-context-v1"
-                                if self.mode == "context"
-                                else "docx-to-pdf"
-                            ),
+                            converter_used="doc-to-search-context-v1",
                             conversion_status="SUCCESS",
                             error_message=None,
                         )
@@ -383,6 +411,11 @@ class ConversionDirector:
                             "artifact_path": str(expert_result["artifact_path"]),
                             "artifact_type": expert_result.get("artifact_type"),
                             "chunk_count": expert_result.get("chunk_count", 0),
+                            "search_chunk_count": len(
+                                chunk_result["search_context_chunks"].get("chunks", [])
+                            ),
+                            "search_chunk_artifact_type": chunk_result["search_context_chunks"].get("artifact_type"),
+                            "search_chunk_artifact_path": str(chunk_artifact_path),
                         }
 
                     elif self.mode == "pdf":
@@ -435,9 +468,12 @@ class ConversionDirector:
                         "status": "FAILED",
                         "error": str(e),
                     }
+            for artifact in planned_convert_artifacts:
+                result = _convert_one(artifact)
+                conversions.append(result)
 
             failures = [c for c in conversions if c["status"] == "FAILED"]
-            
+
             finalize_run(
                 db_path=self.db_path,
                 run_id=run_id,
@@ -513,7 +549,6 @@ class ConversionDirector:
 
             emit_run_manifest(self.manifest_dir, result)
 
-            print(f"DEBUG director returning result keys: {list(result.keys())}")
 
             return result
 

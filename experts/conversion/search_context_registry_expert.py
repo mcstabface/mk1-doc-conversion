@@ -21,7 +21,7 @@ class SearchContextRegistryExpert:
                 fp = fingerprints.get(source_path, {})
                 source_hash = fp.get("source_hash")
 
-                row = conn.execute(
+                rows = conn.execute(
                     """
                     SELECT
                         source_path,
@@ -34,17 +34,28 @@ class SearchContextRegistryExpert:
                     WHERE source_path = ?
                     """,
                     (source_path,),
-                ).fetchone()
+                ).fetchall()
 
-                if row is not None and row["source_hash"] == source_hash:
+                matching_rows = [r for r in rows if r["source_hash"] == source_hash]
+
+                artifact_types = {r["artifact_type"] for r in matching_rows}
+
+                has_search_context = "search_context_document" in artifact_types
+                has_search_chunks = "search_context_chunks" in artifact_types
+
+                if has_search_context and has_search_chunks:
+                    context_row = next(
+                        r for r in matching_rows
+                        if r["artifact_type"] == "search_context_document"
+                    )
                     plan["skip"].append(
                         {
                             "source_path": source_path,
                             "reason": "unchanged_already_contextualized",
-                            "artifact_path": row["artifact_path"],
-                            "artifact_hash": row["artifact_hash"],
-                            "artifact_type": row["artifact_type"],
-                            "run_id": row["run_id"],
+                            "artifact_path": context_row["artifact_path"],
+                            "artifact_hash": context_row["artifact_hash"],
+                            "artifact_type": context_row["artifact_type"],
+                            "run_id": context_row["run_id"],
                         }
                     )
                 else:
