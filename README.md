@@ -1,167 +1,377 @@
-[README.md](https://github.com/user-attachments/files/25904043/README.md)
-# MK1 Document Conversion Pipeline
+MK1 Document Conversion & Retrieval System
 
-Deterministic document ingestion and conversion pipeline designed to support downstream LLM ingestion workflows.
+MK1 is a deterministic modular expert system for document ingestion, artifact generation, and hybrid retrieval.
 
-The system scans a directory tree, fingerprints documents, determines whether they require conversion, and converts eligible files to PDF using LibreOffice in headless mode.
+The system converts raw documents into structured artifacts, generates searchable chunks and embeddings, and performs hybrid lexical + semantic retrieval over the resulting corpus.
 
-The pipeline is **idempotent** and **delta-aware**, meaning previously converted files are skipped automatically unless their contents change.
+The design prioritizes:
 
----
+determinism
 
-# Key Features
+auditability
 
-Deterministic ingestion pipeline:
+modular architecture
 
-inventory → fingerprint → registry decision → conversion → audit
+artifact-driven pipelines
 
-Capabilities:
+enterprise-grade observability
 
-- Recursive document discovery
-- SHA256 fingerprinting
-- Delta-aware conversion
-- Automatic skip of unchanged files
-- Parallel document conversion
-- SQLite audit history
-- Deterministic run manifests
-- Clean CLI output
-- LibreOffice-based document normalization
+MK1 intentionally avoids agentic orchestration. Every step in the pipeline is implemented as a single-purpose expert module.
 
----
+Core Design Principles
 
-# Supported Input Types
+MK1 follows several architectural invariants.
 
-LibreOffice enables conversion of multiple document types:
+Deterministic pipelines
 
-Word:
-- .doc
-- .docx
-- .odt
-- .rtf
+Every stage produces explicit artifacts that can be inspected and reproduced.
 
-Spreadsheets:
-- .xls
-- .xlsx
-- .ods
+Expert modules
 
-Presentations:
-- .ppt
-- .pptx
-- .odp
+Each stage is implemented as a small, isolated component called an Expert.
 
-Additional formats may also work depending on LibreOffice support.
+Artifact-driven architecture
 
----
+All system state is stored as artifacts rather than hidden runtime memory.
 
-# Requirements
+Auditability
 
-Required software:
+Every stage of the system can be replayed and inspected.
 
-LibreOffice  
-https://www.libreoffice.org/download/
+LLM isolation
 
-LibreOffice is used in **headless mode** to perform document conversion.
+Large language models never operate on raw documents.
+They operate only on curated artifacts produced by deterministic pipelines.
 
-Python is **not required** if using the packaged executable.
+Current System Status
 
----
+Current version: V3 – Hybrid Retrieval Layer
 
-# Usage
+The system now supports:
 
-Example:
+deterministic document ingestion
 
+normalized search context artifacts
 
-mk1-doc-conversion.exe --source C:\documents
+chunk generation
 
+lexical ranking (BM25)
 
-Optional parameters:
+semantic vector search
 
+hybrid retrieval
 
---source Directory to recursively scan
---pdf-output Directory where PDFs are written
---db-path SQLite database for pipeline memory
---recent-runs Number of runs to show in audit output
+diversity reranking
 
+deterministic answer extraction
 
-Example:
+The pipeline is fully artifact-driven and auditable.
 
+System Architecture
 
-mk1-doc-conversion.exe
---source C:\contracts
---pdf-output C:\contracts\pdf
+The retrieval pipeline currently operates as follows:
 
+Query
+ │
+ ▼
+Query Expansion Expert
+ │
+ ▼
+Search Context Query Expert
+ │
+ ▼
+Ranker Selection
+ │
+ ├─ overlap
+ ├─ bm25
+ └─ hybrid
+ │
+ ├─ BM25 lexical ranking
+ │
+ ├─ Query Embedding
+ │
+ ├─ Vector Search
+ │
+ └─ Hybrid Fusion
+ │
+ ▼
+MMR Diversity Reranking
+ │
+ ▼
+Context Assembly
+ │
+ ▼
+Answer Artifact
 
----
+Hybrid ranking combines lexical and semantic retrieval while maintaining lexical precision as the primary signal. 
 
-# Example Output
+MK1_V3_RETRIEVAL_COMPLETION_ART…
 
+Directory Structure
+mk1-doc-conversion
 
-RUN RESULT
-run_id: 57
-status: CONVERSION_RUN_COMPLETE
-planned_total_count: 5
-planned_convert_count: 0
-planned_skip_count: 5
+experts/
+    ingestion/
+    llm_search/
+        bm25_rank_expert.py
+        embedding_chunk_expert.py
+        vector_search_expert.py
+        hybrid_fusion_expert.py
 
-SKIPPED
-SKIP | contract1.docx | reason=unchanged_already_converted
-SKIP | contract2.docx | reason=unchanged_already_converted
+tools/
+    build_embeddings.py
 
+artifacts/
+    search_context_chunks/
+    embeddings/
+    query_context/
+    query_answer/
 
----
+query_search_context.py
 
-# Architecture
+Artifacts are written to disk at every stage of the pipeline.
 
-Pipeline stages:
+Artifact Types
+Search Context Chunk
 
-1. Inventory
-   - Recursive file discovery
+Location:
 
-2. Fingerprinting
-   - SHA256 hash calculation
+artifacts/search_context_chunks/
 
-3. Registry Decision Engine
-   - Determines convert vs skip
+Represents a retrieval unit extracted from a document.
 
-4. Conversion
-   - LibreOffice headless conversion
+Fields typically include:
 
-5. Audit + Manifest
-   - SQLite run history
-   - Run manifest emitted per execution
+logical_path
+chunk_index
+text
+token_estimate
+source_hash
+Embedding Artifact
 
----
+Location:
 
-# Idempotent Behavior
+artifacts/embeddings/
 
-Files that have already been converted are skipped automatically unless their content changes.
+Each chunk generates one embedding vector.
 
-Example:
+Embedding model:
 
+nomic-embed-text
+dimension: 768
 
-first run → converts files
-second run → skips unchanged files
+Example artifact:
 
+Procurement_Directive_404-Omega_<hash>_0000.nomic-embed-text.embedding.json
+Query Context Artifact
 
-This prevents unnecessary reprocessing and provides deterministic ingestion behavior.
+Location:
 
----
+artifacts/query_context/
 
-# Future Direction
+Contains:
 
-The current pipeline converts documents to PDF because the downstream system requires PDF ingestion.
+ranked chunks
 
-Future enhancements may include:
+query expansion metadata
 
-- conversion directly to LLM search context
-- structured document extraction
-- document chunking pipelines
-- vector indexing
+ranking diagnostics
 
-The ingestion pipeline architecture already supports these future stages.
+Query Answer Artifact
 
----
+Location:
 
-# Repository
+artifacts/query_answer/
+
+Contains:
+
+extracted answer evidence
+
+source references
+
+ranking metadata
+
+Ranking Strategies
+
+The system supports three ranking modes.
+
+Overlap
+
+Baseline ranking using token overlap.
+
+Purpose:
+
+debugging
+
+baseline comparison
+
+BM25
+
+Primary lexical ranking algorithm.
+
+Characteristics:
+
+term frequency scoring
+
+inverse document frequency weighting
+
+deterministic scoring
+
+BM25 provides strong precision for enterprise documents.
+
+Hybrid (V3)
+
+Hybrid retrieval combines lexical ranking with semantic vector search.
+
+Fusion strategy:
+
+vector_bonus_weight = 0.10
+vector_only_score_floor = 0.60
+
+Behavior:
+
+lexical ranking forms the backbone
+
+vector matches add a small relevance bonus
+
+vector-only results require strong similarity
+
+This preserves lexical precision while improving recall. 
+
+MK1_V3_RETRIEVAL_COMPLETION_ART…
+
+Running a Query
+
+Example query execution:
+
+python query_search_context.py \
+  --query "procurement risk" \
+  --chunk-root artifacts/search_context_chunks \
+  --ranker hybrid \
+  --max-chunks-per-source 1
+
+Outputs:
+
+artifacts/query_context/*.json
+artifacts/query_answer/*.json
+
+The CLI also prints debugging diagnostics including ranking details and evidence sources.
+
+Embedding Generation
+
+Embeddings are generated from chunk artifacts using:
+
+tools/build_embeddings.py
+
+Run:
+
+python -m tools.build_embeddings
+
+This tool:
+
+scans chunk artifacts
+
+generates embeddings
+
+writes embedding artifacts
+
+Embeddings are generated using a local Ollama model.
+
+Example Ollama endpoint:
+
+http://localhost:11434/api/embeddings
+Current Test Corpus
+
+The V3 system has been validated using a small controlled corpus:
+
+Procurement Directive 404-Omega
+
+Deep Space Risk & Issue Log
+
+Operation Luminous Apex
+
+Griffin Plumage SOP
+
+Exoplanetary Biosphere SOW
+
+The dataset was intentionally small to allow deterministic debugging.
+
+Known Limitations
+
+These limitations are expected at the V3 stage.
+
+Corpus Size
+
+Testing has been performed on a small dataset.
+
+Future testing targets:
+
+~100 documents
+~3000 documents
+Vector Search Performance
+
+Vector search currently uses brute-force cosine similarity.
+
+This approach will not scale indefinitely.
+
+Possible future solutions:
+
+FAISS
+
+HNSW
+
+vector databases
+
+Embedding Pipeline
+
+Embeddings currently run as a batch process.
+
+Future improvements may include:
+
+incremental embedding updates
+
+embedding validation
+
+embedding coverage diagnostics
+
+V4 Roadmap
+
+V4 development will focus on scaling and system hardening.
+
+Primary goals:
+
+large corpus testing
+
+PDF ingestion pipeline
+
+scalable vector indexing
+
+retrieval diagnostics
+
+ranking tuning
+
+artifact schema tightening
+
+search observability
+
+Repository
+
+GitHub repository:
 
 https://github.com/mcstabface/mk1-doc-conversion
+
+Summary
+
+MK1 is a deterministic retrieval architecture designed to demonstrate a modular expert system approach to document processing and hybrid search.
+
+At the completion of V3 the system now supports:
+
+lexical search
+
+semantic vector retrieval
+
+hybrid fusion ranking
+
+deterministic artifact pipelines
+
+This provides a stable foundation for scaling the system in V4.
