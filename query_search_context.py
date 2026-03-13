@@ -6,6 +6,8 @@ from pathlib import Path
 
 from mk1_io.artifact_writer import write_validated_artifact
 
+from datetime import datetime, timezone
+
 from experts.llm_search.search_context_assemble_expert import SearchContextAssembleExpert
 from experts.llm_search.search_context_query_expert import SearchContextQueryExpert
 from experts.llm_search.search_context_rank_expert import SearchContextRankExpert
@@ -323,64 +325,23 @@ def main():
     answer_result = pipeline["answer_result"]
     diagnostics = pipeline["diagnostics"]
 
+    artifact_root = Path(args.artifact_root).resolve()
+
     query_artifact_dir = artifact_root / "query_context"
     query_artifact_dir.mkdir(parents=True, exist_ok=True)
-
-    safe_query = "_".join(args.query.lower().split())[:80]
-    artifact_stem = f"{safe_query}.{args.ranker}"
-    query_artifact_path = query_artifact_dir / f"{artifact_stem}.query_context.json"
 
     answer_artifact_dir = artifact_root / "query_answer"
     answer_artifact_dir.mkdir(parents=True, exist_ok=True)
 
-    answer_artifact_path = answer_artifact_dir / f"{artifact_stem}.query_answer.json"
-
-    from datetime import datetime, timezone
-    now_utc = int(datetime.now(timezone.utc).timestamp())
-
-    answer_result["artifact_type"] = "query_answer"
-    answer_result["schema_version"] = "query_answer_v1"
-    answer_result["created_utc"] = now_utc
-    answer_result["producer_expert"] = "query_search_context"
-    answer_result["run_id"] = None
-    answer_result["status"] = "COMPLETE"
-    answer_result["source_count"] = len(answer_result.get("sources", []))
-
-    write_validated_artifact(answer_artifact_path, answer_result)
-
-    print("QUERY ANSWER ARTIFACT:", answer_artifact_path)
-
-    print("\nANSWER\n")
-    print(answer_result["answer_text"])
-
     diagnostics_dir = artifact_root / "query_diagnostics"
     diagnostics_dir.mkdir(parents=True, exist_ok=True)
 
+    safe_query = "_".join(args.query.lower().split())[:80]
+    artifact_stem = f"{safe_query}.{args.ranker}"
+
+    query_artifact_path = query_artifact_dir / f"{artifact_stem}.query_context.json"
+    answer_artifact_path = answer_artifact_dir / f"{artifact_stem}.query_answer.json"
     diagnostics_path = diagnostics_dir / f"{artifact_stem}.diagnostics.json"
-
-    diagnostics["artifact_type"] = "query_diagnostics"
-    diagnostics["schema_version"] = "query_diagnostics_v1"
-    diagnostics["created_utc"] = now_utc
-    diagnostics["producer_expert"] = "query_search_context"
-    diagnostics["run_id"] = None
-    diagnostics["status"] = "COMPLETE"
-
-    write_validated_artifact(diagnostics_path, diagnostics)
-
-    print("QUERY DIAGNOSTICS ARTIFACT:", diagnostics_path)
-
-    from datetime import datetime, timezone
-
-    now_utc = int(datetime.now(timezone.utc).timestamp())
-
-    assembled["artifact_type"] = "query_context"
-    assembled["schema_version"] = "query_context_v1"
-    assembled["created_utc"] = now_utc
-    assembled["producer_expert"] = "query_search_context"
-    assembled["run_id"] = None
-    assembled["status"] = "COMPLETE"
-
-    write_validated_artifact(query_artifact_path, assembled)
 
     print("\nQUERY:", result["query_text"])
     print("CANDIDATE CHUNKS:", result["candidate_count"])
