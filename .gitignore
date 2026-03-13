@@ -16,3 +16,10 @@ test_source/.~lock*
 .directory
 
 .DS_Store
+
+# Large local datasets
+test_source_mid/
+test_source_large/
+
+# Optional: ignore all raw document dumps
+DocDump/
