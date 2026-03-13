@@ -3,6 +3,8 @@ import zipfile
 from pathlib import Path
 import json
 
+from mk1_io.artifact_writer import write_validated_artifact
+
 from experts.inventory.inventory_expert import run_inventory
 from experts.containers.zip_expand_expert import expand_zip_artifacts
 from experts.delta.delta_expert import detect_delta
@@ -187,11 +189,16 @@ class ConversionDirector:
         else:
             raise ValueError(f"Unsupported mode: {self.mode}")
 
+        if self.mode == "context":
+            allowed_ext = (".doc", ".docx", ".odt", ".rtf", ".pdf")
+        else:
+            allowed_ext = (".doc", ".docx", ".odt", ".rtf")
+
         convertible_inventory = [
             a["physical_path"]
             for a in expanded
             if "physical_path" in a
-            and str(a["physical_path"]).lower().endswith((".doc", ".docx", ".odt", ".rtf"))
+            and str(a["physical_path"]).lower().endswith(allowed_ext)
         ]
 
         fingerprint_payload = {
@@ -374,16 +381,15 @@ class ConversionDirector:
                         chunk_result = chunk_expert.run(chunk_payload)
                         chunk_artifact = chunk_result["search_context_chunks"]
 
-                        chunk_result = chunk_expert.run(chunk_payload)
-                        chunk_artifact = chunk_result["search_context_chunks"]
-
                         chunk_artifact_dir = self.pdf_output.parent / "search_context_chunks"
                         chunk_artifact_dir.mkdir(parents=True, exist_ok=True)
 
-                        chunk_artifact_path = chunk_artifact_dir / f"{artifact['source_hash']}.search_context_chunks.json"
+                        chunk_artifact_path = (
+                            chunk_artifact_dir
+                            / f"{artifact['source_hash']}.search_context_chunks.json"
+                        )
 
-                        with open(chunk_artifact_path, "w", encoding="utf-8") as f:
-                            json.dump(chunk_artifact, f, indent=2, ensure_ascii=False)
+                        write_validated_artifact(chunk_artifact_path, chunk_artifact)
 
                         self._persist_search_context_registry_row(
                             source_path=artifact["physical_path"],
@@ -417,37 +423,6 @@ class ConversionDirector:
                             "search_chunk_artifact_type": chunk_result["search_context_chunks"].get("artifact_type"),
                             "search_chunk_artifact_path": str(chunk_artifact_path),
                         }
-
-                    elif self.mode == "pdf":
-                        output_pdf_path = convert_docx_to_pdf(artifact, self.pdf_output)
-
-                        self._persist_conversion_registry_row(
-                            source_path=artifact["physical_path"],
-                            source_hash=artifact["source_hash"],
-                            output_pdf=output_pdf_path,
-                            run_id=run_id,
-                        )
-
-                        persist_conversion_receipt(
-                            db_path=self.db_path,
-                            artifact_id=artifact_id,
-                            run_id=run_id,
-                            output_pdf_path=output_pdf_path,
-                            converter_used="docx-to-pdf",
-                            conversion_status="SUCCESS",
-                            error_message=None,
-                        )
-
-                        return {
-                            "logical_path": artifact["logical_path"],
-                            "physical_path": artifact["physical_path"],
-                            "source_hash": artifact["source_hash"],
-                            "status": "SUCCESS",
-                            "output_pdf_path": output_pdf_path,
-                        }
-
-                    else:
-                        raise ValueError(f"Unsupported mode: {self.mode}")
                 except Exception as e:
                     persist_conversion_receipt(
                         db_path=self.db_path,
