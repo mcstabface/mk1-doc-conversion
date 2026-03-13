@@ -12,12 +12,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--chunk-root",
-        default="artifacts/search_context_chunks",
+        default="artifacts/test_source_mid/search_context_chunks",
         help="Directory containing search_context_chunks artifacts",
     )
     parser.add_argument(
         "--output-root",
-        default="artifacts/embeddings",
+        default="artifacts/test_source_mid/embeddings",
         help="Directory to write embedding artifacts",
     )
     parser.add_argument(

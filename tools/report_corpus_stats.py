@@ -7,9 +7,9 @@ from pathlib import Path
 from mk1_io.artifact_writer import write_validated_artifact
 
 
-CHUNK_ROOT = Path("artifacts/search_context_chunks")
-EMBED_ROOT = Path("artifacts/embeddings")
-DOC_ROOT = Path("artifacts/search_context")
+CHUNK_ROOT = Path("artifacts/test_source_mid/search_context_chunks")
+EMBED_ROOT = Path("artifacts/test_source_mid/embeddings")
+DOC_ROOT = Path("artifacts/test_source_mid/search_context")
 OUTPUT = Path("artifacts/corpus_stats/corpus_stats.json")
 
 

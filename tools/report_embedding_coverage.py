@@ -6,8 +6,8 @@ from pathlib import Path
 import argparse
 
 
-CHUNK_ROOT = Path("artifacts/search_context_chunks")
-EMBED_ROOT = Path("artifacts/embeddings")
+CHUNK_ROOT = Path("artifacts/test_source_mid/search_context_chunks")
+EMBED_ROOT = Path("artifacts/test_source_mid/embeddings")
 
 
 def load_active_chunk_ids(source_contains: str | None = None) -> set[str]:
