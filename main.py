@@ -69,6 +69,11 @@ def parse_args() -> argparse.Namespace:
         default="pdf",
         help="Conversion mode: pdf (default) or context",
     )
+    parser.add_argument(
+        "--artifact-root",
+        default="./artifacts",
+        help="Root directory for generated artifacts",
+    )
 
     return parser.parse_args()
 
@@ -88,16 +93,21 @@ def main() -> None:
 
     db_path = Path(args.db_path).resolve()
     source_root = Path(args.source_root).resolve()
-    pdf_output = Path(args.pdf_output).resolve()
+    artifact_root = Path(args.artifact_root).resolve()
     schema_path = DEFAULT_SCHEMA_PATH
+    mode = args.mode
 
     ensure_libreoffice_available()
 
+    if mode == "context":
+        pdf_output = artifact_root / "pdfs"
+    else:
+        pdf_output = Path(args.pdf_output).resolve()
+
     pdf_output.mkdir(parents=True, exist_ok=True)
-    manifest_dir = Path("./artifacts/manifests")
+
+    manifest_dir = artifact_root / "manifests"
     manifest_dir.mkdir(parents=True, exist_ok=True)
-    mode = args.mode
-    DEFAULT_MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
 
     ensure_db(db_path, schema_path)
 
