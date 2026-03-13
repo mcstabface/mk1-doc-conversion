@@ -100,7 +100,7 @@ def run_query_pipeline(
 
             vector_result = vector_search_expert.run({
                 "query_vector": query_embedding["vector"],
-                "embedding_root": "artifacts/embeddings",
+                "embedding_root": "artifacts/test_source_mid/embeddings",
                 "top_k": DEFAULT_TOP_K,
             })
 
@@ -300,6 +300,12 @@ def main():
         help="Inclusive allow-list of source file types to search, e.g. pdf docx doc",
     )
 
+    parser.add_argument(
+        "--artifact-root",
+        default="./artifacts",
+        help="Root directory for query artifacts"
+    )
+
     args = parser.parse_args()
 
     pipeline = run_query_pipeline(
@@ -310,19 +316,21 @@ def main():
         allowed_file_types=args.allowed_file_types,
     )
 
+    artifact_root = Path(args.artifact_root).resolve()
+
     result = pipeline["result"]
     assembled = pipeline["assembled"]
     answer_result = pipeline["answer_result"]
     diagnostics = pipeline["diagnostics"]
 
-    query_artifact_dir = Path("artifacts/query_context")
+    query_artifact_dir = artifact_root / "query_context"
     query_artifact_dir.mkdir(parents=True, exist_ok=True)
 
     safe_query = "_".join(args.query.lower().split())[:80]
     artifact_stem = f"{safe_query}.{args.ranker}"
     query_artifact_path = query_artifact_dir / f"{artifact_stem}.query_context.json"
 
-    answer_artifact_dir = Path("artifacts/query_answer")
+    answer_artifact_dir = artifact_root / "query_answer"
     answer_artifact_dir.mkdir(parents=True, exist_ok=True)
 
     answer_artifact_path = answer_artifact_dir / f"{artifact_stem}.query_answer.json"
@@ -345,7 +353,7 @@ def main():
     print("\nANSWER\n")
     print(answer_result["answer_text"])
 
-    diagnostics_dir = Path("artifacts/query_diagnostics")
+    diagnostics_dir = artifact_root / "query_diagnostics"
     diagnostics_dir.mkdir(parents=True, exist_ok=True)
 
     diagnostics_path = diagnostics_dir / f"{artifact_stem}.diagnostics.json"
@@ -403,14 +411,14 @@ def main():
     print("\nASSEMBLED CONTEXT\n")
     print(assembled["context_text"])
 
-    query_artifact_dir = Path("artifacts/query_context")
+    query_artifact_dir = artifact_root / "query_context"
     query_artifact_dir.mkdir(parents=True, exist_ok=True)
 
     safe_query = "_".join(args.query.lower().split())[:80]
     artifact_stem = f"{safe_query}.{args.ranker}"
     query_artifact_path = query_artifact_dir / f"{artifact_stem}.query_context.json"
 
-    answer_artifact_dir = Path("artifacts/query_answer")
+    answer_artifact_dir = artifact_root / "query_answer"
     answer_artifact_dir.mkdir(parents=True, exist_ok=True)
 
     answer_artifact_path = answer_artifact_dir / f"{artifact_stem}.query_answer.json"
