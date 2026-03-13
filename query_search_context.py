@@ -42,6 +42,13 @@ def run_query_pipeline(
     vector_search_expert = VectorSearchExpert()
     hybrid_fusion_expert = HybridFusionExpert()
 
+    chunk_root_path = Path(chunk_root).resolve()
+
+    # artifacts/<dataset>/search_context_chunks
+    dataset_root = chunk_root_path.parent
+
+    embedding_root = dataset_root / "embeddings"
+
     query_payload = {
         "query_text": query,
         "chunk_artifact_root": chunk_root,
@@ -102,7 +109,7 @@ def run_query_pipeline(
 
             vector_result = vector_search_expert.run({
                 "query_vector": query_embedding["vector"],
-                "embedding_root": "artifacts/test_source_mid/embeddings",
+                "embedding_root": str(embedding_root),
                 "top_k": DEFAULT_TOP_K,
             })
 
@@ -114,6 +121,30 @@ def run_query_pipeline(
                 "vector_bonus_weight": 0.10,
                 "vector_only_score_floor": 0.60,
                 "top_k": DEFAULT_TOP_K,
+            })
+
+            # Preserve per-expanded-query fusion observability.
+            diagnostics.setdefault("hybrid_fusion", {
+                "config": fused.get("fusion_config"),
+                "per_expanded_query": [],
+            })
+            diagnostics["hybrid_fusion"]["per_expanded_query"].append({
+                "expanded_query": expanded_query,
+                "lexical_input_count": len(lexical_results),
+                "vector_input_count": len(vector_result.get("results", [])),
+                "fused_count": len(fused.get("results", [])),
+                "top_items": [
+                    {
+                        "logical_path": r.get("logical_path"),
+                        "chunk_index": r.get("chunk_index"),
+                        "lexical_score": r.get("lexical_score"),
+                        "vector_score": r.get("vector_score"),
+                        "fusion_bonus": r.get("fusion_bonus"),
+                        "fusion_doc_boost": r.get("fusion_doc_boost"),
+                        "fusion_score": r.get("fusion_score"),
+                    }
+                    for r in fused.get("results", [])
+                ],
             })
 
             expanded_result = {
@@ -192,6 +223,7 @@ def run_query_pipeline(
 
     diagnostics["final_returned_count"] = len(result["results"])
     diagnostics["results"] = []
+    diagnostics["retrieval_trace"] = []
 
     source_seen_counts = {}
     diversified_results = []
@@ -222,18 +254,27 @@ def run_query_pipeline(
         reverse=True,
     )
 
-    for r in result["results"]:
-        diagnostics["results"].append({
+    for final_rank, r in enumerate(result["results"], start=1):
+        trace_row = {
+            "final_rank": final_rank,
             "logical_path": r.get("logical_path"),
             "chunk_index": r.get("chunk_index"),
             "chunk_id": r.get("chunk_id"),
-            "fusion_score": r.get("score"),
+            "seen_in_lexical": r.get("seen_in_lexical"),
+            "seen_in_vector": r.get("seen_in_vector"),
+            "lexical_score": r.get("lexical_score"),
+            "vector_score": r.get("vector_score"),
+            "fusion_score": r.get("fusion_score", r.get("score")),
+            "final_score": r.get("score"),
             "raw_score": r.get("raw_score"),
             "expansion_weight": r.get("expansion_weight"),
             "matched_query": r.get("matched_query"),
             "pre_diversity_score": r.get("pre_diversity_score"),
             "source_diversity_weight": r.get("source_diversity_weight"),
-        })
+        }
+        diagnostics["retrieval_trace"].append(trace_row)
+
+    diagnostics["results"] = result["results"]
 
     assemble_payload = {
         "query_text": query,
@@ -250,6 +291,18 @@ def run_query_pipeline(
     diagnostics["context_used_count"] = assembled.get("used_count", 0)
     diagnostics["included_results"] = assembled.get("included_results", [])
     diagnostics["excluded_results"] = assembled.get("excluded_results", [])
+
+    # Corpus scaling / size metrics for observability.
+    try:
+        chunk_files = list((dataset_root / "search_context_chunks").glob("*.search_context_chunks.json"))
+        diagnostics["corpus_document_count"] = len(chunk_files)
+    except Exception:
+        diagnostics["corpus_document_count"] = None
+    diagnostics["artifact_type"] = "query_diagnostics"
+    diagnostics["schema_version"] = "query_diagnostics_v1"
+    diagnostics["producer_expert"] = "query_search_context"
+    diagnostics["run_id"] = None
+    diagnostics["status"] = "COMPLETE"
 
     answer_payload = {
         "query_text": assembled.get("query_text"),
@@ -319,6 +372,9 @@ def main():
     )
 
     artifact_root = Path(args.artifact_root).resolve()
+    chunk_root_path = Path(args.chunk_root).resolve()
+    dataset_root = chunk_root_path.parent
+    artifact_root = dataset_root
 
     result = pipeline["result"]
     assembled = pipeline["assembled"]
@@ -386,6 +442,8 @@ def main():
 
     now_utc = int(datetime.now(timezone.utc).timestamp())
 
+    diagnostics["created_utc"] = now_utc
+
     answer_result["artifact_type"] = "query_answer"
     answer_result["schema_version"] = "query_answer_v1"
     answer_result["created_utc"] = now_utc
@@ -403,6 +461,7 @@ def main():
 
     write_validated_artifact(answer_artifact_path, answer_result)
     write_validated_artifact(query_artifact_path, assembled)
+    write_validated_artifact(diagnostics_path, diagnostics)
 
 
 if __name__ == "__main__":

@@ -41,20 +41,43 @@ class SearchContextAssembleExpert:
 
         context_parts: List[str] = []
         sources: List[Dict[str, Any]] = []
+        included_results: List[Dict[str, Any]] = []
+        excluded_results: List[Dict[str, Any]] = []
         used_count = 0
         total_chars = 0
         source_counts: Dict[str, int] = {}
 
         for result in results:
             logical_path = result.get("logical_path", "unknown")
-            current_count = source_counts.get(logical_path, 0)
-            if current_count >= max_chunks_per_source:
-                continue
             chunk_index = result.get("chunk_index", -1)
             text = result.get("text", "").strip()
             score = result.get("score", 0)
+            chunk_id = result.get("chunk_id")
+
+            current_count = source_counts.get(logical_path, 0)
+
+            if current_count >= max_chunks_per_source:
+                excluded_results.append(
+                    {
+                        "logical_path": logical_path,
+                        "chunk_index": chunk_index,
+                        "chunk_id": chunk_id,
+                        "score": score,
+                        "reason": "source_cap",
+                    }
+                )
+                continue
 
             if not text:
+                excluded_results.append(
+                    {
+                        "logical_path": logical_path,
+                        "chunk_index": chunk_index,
+                        "chunk_id": chunk_id,
+                        "score": score,
+                        "reason": "empty_text",
+                    }
+                )
                 continue
 
             block = (
@@ -64,6 +87,15 @@ class SearchContextAssembleExpert:
 
             projected = total_chars + len(block) + 2
             if projected > max_context_chars:
+                excluded_results.append(
+                    {
+                        "logical_path": logical_path,
+                        "chunk_index": chunk_index,
+                        "chunk_id": chunk_id,
+                        "score": score,
+                        "reason": "max_context_chars",
+                    }
+                )
                 break
 
             context_parts.append(block)
@@ -72,7 +104,15 @@ class SearchContextAssembleExpert:
                     "logical_path": logical_path,
                     "chunk_index": chunk_index,
                     "score": score,
-                    "chunk_id": result.get("chunk_id"),
+                    "chunk_id": chunk_id,
+                }
+            )
+            included_results.append(
+                {
+                    "logical_path": logical_path,
+                    "chunk_index": chunk_index,
+                    "chunk_id": chunk_id,
+                    "score": score,
                 }
             )
             total_chars = projected
@@ -88,4 +128,6 @@ class SearchContextAssembleExpert:
             "used_count": used_count,
             "context_text": context_text,
             "sources": sources,
+            "included_results": included_results,
+            "excluded_results": excluded_results,
         }

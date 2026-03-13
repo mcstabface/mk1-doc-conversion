@@ -1,0 +1,39 @@
+{
+    "dataset": "test_source_mid",
+    "ranker": "hybrid",
+    "top_k": 10,
+    "queries": [
+        {
+            "query": "Jeffrey Epstein",
+            "expected_sources": [
+                "IMAGES/0001/EFTA02730486.pdf",
+                "IMAGES/0001/EFTA02730271.pdf"
+            ]
+        },
+        {
+            "query": "Ghislaine Maxwell",
+            "expected_sources": [
+                "IMAGES/0001/EFTA02730271.pdf"
+            ]
+        },
+        {
+            "query": "suicide watch",
+            "expected_sources": [
+                "IMAGES/0001/EFTA02730486.pdf"
+            ]
+        },
+        {
+            "query": "cellmate",
+            "expected_sources": [
+                "IMAGES/0001/EFTA02730486.pdf",
+                "IMAGES/0001/EFTA02730741.pdf"
+            ]
+        },
+        {
+            "query": "medical notes",
+            "expected_sources": [
+                "IMAGES/0001/EFTA02730486.pdf"
+            ]
+        }
+    ]
+}

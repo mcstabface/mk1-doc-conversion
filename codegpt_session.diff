@@ -1,0 +1,714 @@
+diff --git a/experts/conversion/doc_to_search_context_expert.py b/experts/conversion/doc_to_search_context_expert.py
+index 37268a38a..78eb00d5c 100644
+--- a/experts/conversion/doc_to_search_context_expert.py
++++ b/experts/conversion/doc_to_search_context_expert.py
+@@ -18,7 +18,7 @@ class DocToSearchContextExpert(BaseExpert):
+         run_id = payload["run_id"]
+         target_chars = int(payload.get("target_chars", 2000))
+         overlap_chars = int(payload.get("overlap_chars", 200))
+-        out_dir = Path(payload.get("artifact_dir", "artifacts/search_context"))
++        out_dir = Path(payload.get("artifact_dir", "artifacts/test_source_mid/search_context"))
+         out_dir.mkdir(parents=True, exist_ok=True)
+ 
+         text = self._extract_text(src)
+diff --git a/experts/inventory/__pycache__/inventory_expert.cpython-314.pyc b/experts/inventory/__pycache__/inventory_expert.cpython-314.pyc
+index 444f5bad2..daadc160e 100644
+Binary files a/experts/inventory/__pycache__/inventory_expert.cpython-314.pyc and b/experts/inventory/__pycache__/inventory_expert.cpython-314.pyc differ
+diff --git a/experts/llm_search/embedding_chunk_expert.py b/experts/llm_search/embedding_chunk_expert.py
+index a7784f59d..5777e0a6e 100644
+--- a/experts/llm_search/embedding_chunk_expert.py
++++ b/experts/llm_search/embedding_chunk_expert.py
+@@ -7,11 +7,13 @@ from datetime import datetime, timezone
+ from pathlib import Path
+ from urllib.request import Request, urlopen
+ 
++from mk1_io.artifact_writer import write_validated_artifact
++
+ 
+ class EmbeddingChunkExpert:
+     def run(self, payload: dict) -> dict:
+         chunk_path = Path(payload["chunk_artifact_path"])
+-        output_dir = Path(payload.get("output_dir", "artifacts/embeddings"))
++        output_dir = Path(payload.get("output_dir", "artifacts/test_source_mid/embeddings"))
+         model = payload.get("embedding_model", "nomic-embed-text")
+         endpoint = payload.get("endpoint", "http://localhost:11434/api/embeddings")
+ 
+@@ -21,6 +23,7 @@ class EmbeddingChunkExpert:
+         source = artifact.get("source", {})
+         source_hash = source.get("source_hash") or artifact.get("document_hash")
+         logical_path = source.get("logical_path") or artifact.get("logical_path")
++        run_id = artifact.get("run_id")
+ 
+         if "chunks" not in artifact:
+             raise ValueError("Chunk collection artifact missing 'chunks' field.")
+@@ -34,38 +37,64 @@ class EmbeddingChunkExpert:
+             raise ValueError("Chunk collection artifact has empty 'chunks' list.")
+ 
+         written_paths: list[str] = []
++        skipped_valid_count = 0
++        embeddable_chunk_count = 0
+ 
+         for chunk in chunks:
+             text = chunk.get("content", {}).get("text", "").strip()
+             if not text:
+                 continue
++            embeddable_chunk_count += 1
+ 
+-            vector = self._embed(endpoint, model, text)
+             chunk_id = chunk["chunk_id"]
+             safe_chunk_id = re.sub(r"[^A-Za-z0-9._-]+", "_", chunk_id)
+             safe_model = re.sub(r"[^A-Za-z0-9._-]+", "_", model)
+ 
++            artifact_path = output_dir / f"{safe_chunk_id}.{safe_model}.embedding.json"
++
++            text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
++
++            # ---- incremental check ----
++
++            if artifact_path.exists():
++                try:
++                    existing = json.loads(artifact_path.read_text(encoding="utf-8"))
++
++                    if (
++                        existing.get("text_hash") == text_hash
++                        and existing.get("embedding_model") == model
++                    ):
++                        skipped_valid_count += 1
++                        continue
++
++                except Exception:
++                    pass
++            vector = self._embed(endpoint, model, text)
++
++            now_utc = int(datetime.now(timezone.utc).timestamp())
++
+             embedding_artifact = {
+-                "artifact_type": "embedding_vector",
++                "artifact_type": "embedding_artifact",
++                "schema_version": "embedding_artifact_v1",
++                "created_utc": now_utc,
++                "producer_expert": "EmbeddingChunkExpert",
++                "run_id": run_id,
++                "status": "COMPLETE",
+                 "chunk_id": chunk_id,
+                 "logical_path": logical_path,
+-                "chunk_index": chunk.get("chunk_index"),
+                 "document_hash": source_hash,
++                "text_hash": text_hash,
+                 "embedding_model": model,
+-                "embedding_dimensions": len(vector),
+-                "text_hash": hashlib.sha256(text.encode("utf-8")).hexdigest(),
++                "embedding_dim": len(vector),
+                 "vector": vector,
+-                "created_at": datetime.now(timezone.utc).isoformat(),
++                "source_path": source.get("source_path"),
+             }
+ 
+             artifact_path = output_dir / f"{safe_chunk_id}.{safe_model}.embedding.json"
+-            artifact_path.write_text(
+-                json.dumps(embedding_artifact, indent=2, ensure_ascii=False),
+-                encoding="utf-8",
+-            )
++            write_validated_artifact(artifact_path, embedding_artifact)
+             written_paths.append(str(artifact_path))
+ 
+-        if not written_paths:
++        if embeddable_chunk_count == 0:
+             raise ValueError("No chunk texts found to embed.")
+ 
+         return {
+@@ -74,6 +103,7 @@ class EmbeddingChunkExpert:
+             "logical_path": logical_path,
+             "embedding_model": model,
+             "written_count": len(written_paths),
++            "skipped_valid_count": skipped_valid_count,
+             "artifact_paths": written_paths,
+         }
+ 
+diff --git a/experts/llm_search/hybrid_fusion_expert.py b/experts/llm_search/hybrid_fusion_expert.py
+index 3eb0467e7..997a4124b 100644
+--- a/experts/llm_search/hybrid_fusion_expert.py
++++ b/experts/llm_search/hybrid_fusion_expert.py
+@@ -16,6 +16,8 @@ class HybridFusionExpert:
+ 
+         fused_results = []
+ 
++        doc_counts = {}
++
+         lexical_keys = {
+             (item.get("logical_path"), item.get("chunk_index"))
+             for item in lexical_results
+@@ -23,19 +25,30 @@ class HybridFusionExpert:
+ 
+         for item in lexical_results:
+             fused_item = dict(item)
++            fused_item["lexical_score"] = float(item.get("score", 0.0))
+             key = (item.get("logical_path"), item.get("chunk_index"))
+ 
+             vector_match = vector_lookup.get(key)
+             vector_bonus = 0.0
++            vector_score = 0.0
+ 
+             if vector_match is not None:
+-                vector_bonus = vector_bonus_weight * float(vector_match.get("score", 0.0))
++                vector_score = float(vector_match.get("score", 0.0))
++                vector_bonus = vector_bonus_weight * vector_score
+                 fused_item["seen_in_vector"] = True
+             else:
+                 fused_item["seen_in_vector"] = False
+ 
++            fused_item["vector_score"] = vector_score
++
+             fused_item["seen_in_lexical"] = True
+-            fused_item["fusion_score"] = float(item.get("score", 0.0)) + vector_bonus
++            fused_item["fusion_bonus"] = vector_bonus
++            fused_item["fusion_score_pre_doc_boost"] = float(item.get("score", 0.0)) + vector_bonus
++            fused_item["fusion_doc_boost"] = 0.0
++            fused_item["fusion_score"] = fused_item["fusion_score_pre_doc_boost"]
++
++            doc = fused_item.get("logical_path")
++            doc_counts[doc] = doc_counts.get(doc, 0) + 1
+             fused_results.append(fused_item)
+ 
+         for item in vector_results:
+@@ -45,11 +58,30 @@ class HybridFusionExpert:
+ 
+             if float(item.get("score", 0.0)) >= vector_only_score_floor:
+                 vector_only_item = dict(item)
++                vector_only_item["vector_score"] = float(item.get("score", 0.0))
++                vector_only_item["lexical_score"] = 0.0
+                 vector_only_item["seen_in_lexical"] = False
+                 vector_only_item["seen_in_vector"] = True
+-                vector_only_item["fusion_score"] = 0.01 * float(item.get("score", 0.0))
++
++                # Keep vector-only items deterministic but clearly marked as vector-only.
++                vector_only_item["fusion_bonus"] = 0.0
++                vector_only_item["fusion_score_pre_doc_boost"] = 0.01 * float(item.get("score", 0.0))
++                vector_only_item["fusion_doc_boost"] = 0.0
++                vector_only_item["fusion_score"] = vector_only_item["fusion_score_pre_doc_boost"]
++
++                doc = vector_only_item.get("logical_path")
++                doc_counts[doc] = doc_counts.get(doc, 0) + 1
+                 fused_results.append(vector_only_item)
+ 
++        for item in fused_results:
++            doc = item.get("logical_path")
++            count = doc_counts.get(doc, 1)
++
++            if count > 1:
++                doc_boost = 0.20 * (count - 1)
++                item["fusion_doc_boost"] = doc_boost
++                item["fusion_score"] = float(item.get("fusion_score_pre_doc_boost", item.get("fusion_score", 0.0))) + doc_boost
++
+         fused_results.sort(key=lambda x: x["fusion_score"], reverse=True)
+         fused_results = fused_results[:top_k]
+ 
+@@ -57,4 +89,14 @@ class HybridFusionExpert:
+             "artifact_type": "hybrid_fusion_result",
+             "result_count": len(fused_results),
+             "results": fused_results,
++            "fusion_config": {
++                "top_k": top_k,
++                "vector_bonus_weight": vector_bonus_weight,
++                "vector_only_score_floor": vector_only_score_floor,
++            },
++            "fusion_summary": {
++                "lexical_input_count": len(lexical_results),
++                "vector_input_count": len(vector_results),
++                "deduped_input_count": len(fused_results),
++            },
+         }
+\ No newline at end of file
+diff --git a/experts/llm_search/search_context_assemble_expert.py b/experts/llm_search/search_context_assemble_expert.py
+index 8c9d89982..d870394b7 100644
+--- a/experts/llm_search/search_context_assemble_expert.py
++++ b/experts/llm_search/search_context_assemble_expert.py
+@@ -41,20 +41,43 @@ class SearchContextAssembleExpert:
+ 
+         context_parts: List[str] = []
+         sources: List[Dict[str, Any]] = []
++        included_results: List[Dict[str, Any]] = []
++        excluded_results: List[Dict[str, Any]] = []
+         used_count = 0
+         total_chars = 0
+         source_counts: Dict[str, int] = {}
+ 
+         for result in results:
+             logical_path = result.get("logical_path", "unknown")
+-            current_count = source_counts.get(logical_path, 0)
+-            if current_count >= max_chunks_per_source:
+-                continue
+             chunk_index = result.get("chunk_index", -1)
+             text = result.get("text", "").strip()
+             score = result.get("score", 0)
++            chunk_id = result.get("chunk_id")
++
++            current_count = source_counts.get(logical_path, 0)
++
++            if current_count >= max_chunks_per_source:
++                excluded_results.append(
++                    {
++                        "logical_path": logical_path,
++                        "chunk_index": chunk_index,
++                        "chunk_id": chunk_id,
++                        "score": score,
++                        "reason": "source_cap",
++                    }
++                )
++                continue
+ 
+             if not text:
++                excluded_results.append(
++                    {
++                        "logical_path": logical_path,
++                        "chunk_index": chunk_index,
++                        "chunk_id": chunk_id,
++                        "score": score,
++                        "reason": "empty_text",
++                    }
++                )
+                 continue
+ 
+             block = (
+@@ -64,6 +87,15 @@ class SearchContextAssembleExpert:
+ 
+             projected = total_chars + len(block) + 2
+             if projected > max_context_chars:
++                excluded_results.append(
++                    {
++                        "logical_path": logical_path,
++                        "chunk_index": chunk_index,
++                        "chunk_id": chunk_id,
++                        "score": score,
++                        "reason": "max_context_chars",
++                    }
++                )
+                 break
+ 
+             context_parts.append(block)
+@@ -72,7 +104,15 @@ class SearchContextAssembleExpert:
+                     "logical_path": logical_path,
+                     "chunk_index": chunk_index,
+                     "score": score,
+-                    "chunk_id": result.get("chunk_id"),
++                    "chunk_id": chunk_id,
++                }
++            )
++            included_results.append(
++                {
++                    "logical_path": logical_path,
++                    "chunk_index": chunk_index,
++                    "chunk_id": chunk_id,
++                    "score": score,
+                 }
+             )
+             total_chars = projected
+@@ -88,4 +128,6 @@ class SearchContextAssembleExpert:
+             "used_count": used_count,
+             "context_text": context_text,
+             "sources": sources,
++            "included_results": included_results,
++            "excluded_results": excluded_results,
+         }
+\ No newline at end of file
+diff --git a/experts/llm_search/search_context_chunk_expert.py b/experts/llm_search/search_context_chunk_expert.py
+index 745ce3635..b36ca2e1b 100644
+--- a/experts/llm_search/search_context_chunk_expert.py
++++ b/experts/llm_search/search_context_chunk_expert.py
+@@ -1,9 +1,11 @@
+ from __future__ import annotations
+ 
+ from typing import Any, Dict, List
+-
++from datetime import datetime, timezone
+ from experts.base_expert import BaseExpert
+ 
++import hashlib
++
+ 
+ class SearchContextChunkExpert(BaseExpert):
+     """
+@@ -67,19 +69,30 @@ class SearchContextChunkExpert(BaseExpert):
+             overlap_chars=overlap_chars,
+         )
+ 
+-        return {
++        now_utc = int(datetime.now(timezone.utc).timestamp())
++        run_id = payload.get("search_context_document", {}).get("run_id")
++
++        result = {
+             "search_context_chunks": {
+                 "artifact_type": "search_context_chunk_collection",
+-                "schema_version": "v1",
+-                "source": source,
++                "schema_version": "search_context_chunk_collection_v1",
++                "created_utc": now_utc,
++                "producer_expert": "SearchContextChunkExpert",
++                "run_id": run_id,
++                "status": "COMPLETE",
++                "source": {
++                    "source_path": source.get("source_path"),
++                    "logical_path": logical_path,
++                    "source_hash": source_hash,
++                },
+                 "chunking": {
+-                    "strategy": "fixed_chars_with_overlap",
+-                    "target_chars": target_chars,
+-                    "overlap_chars": overlap_chars,
++                    "strategy": "document_chunks_to_search_context_chunks",
++                    "chunk_count": len(normalized_chunks),
+                 },
+                 "chunks": normalized_chunks,
+             }
+         }
++        return result
+ 
+     def _normalize_chunks(
+         self,
+@@ -121,10 +134,18 @@ class SearchContextChunkExpert(BaseExpert):
+                 start_char = 0 if idx == 0 else normalized[-1]["position"]["end_char"] - overlap_chars
+                 end_char = start_char + len(text)
+ 
++            text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
++
+             normalized.append(
+                 {
+                     "chunk_id": f"{logical_path}::{source_hash}::{idx:04d}",
+                     "chunk_index": idx,
++                    "logical_path": logical_path,
++                    "source_path": doc.get("source", {}).get("source_path"),
++                    "document_hash": source_hash,
++                    "text": text,
++                    "text_hash": text_hash,
++                    "token_count": max(1, len(text) // 4),
+                     "content": {
+                         "text": text,
+                         "char_count": len(text),
+diff --git a/experts/llm_search/search_context_query_expert.py b/experts/llm_search/search_context_query_expert.py
+index c3e3f1f76..b34071104 100644
+--- a/experts/llm_search/search_context_query_expert.py
++++ b/experts/llm_search/search_context_query_expert.py
+@@ -5,6 +5,31 @@ from typing import Any, Dict, List
+ import json
+ 
+ 
++def _normalize_allowed_file_types(raw: Any) -> set[str]:
++    if not raw:
++        return set()
++
++    normalized = set()
++    for item in raw:
++        value = str(item).strip().lower()
++        if value.startswith("."):
++            value = value[1:]
++        if value:
++            normalized.add(value)
++
++    return normalized
++
++
++def _derive_file_type(logical_path: str | None) -> str | None:
++    if not logical_path:
++        return None
++
++    suffix = Path(logical_path).suffix.strip().lower()
++    if suffix.startswith("."):
++        suffix = suffix[1:]
++
++    return suffix or None
++
+ class SearchContextQueryExpert:
+     """
+     Deterministic retrieval over persisted search_context_chunks artifacts.
+@@ -32,6 +57,9 @@ class SearchContextQueryExpert:
+     def run(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+         query_text = payload.get("query_text", "").strip()
+         chunk_artifact_root = payload.get("chunk_artifact_root")
++        allowed_file_types = _normalize_allowed_file_types(
++            payload.get("allowed_file_types")
++        )
+ 
+         if not query_text:
+             raise ValueError("SearchContextQueryExpert requires 'query_text'.")
+@@ -43,6 +71,8 @@ class SearchContextQueryExpert:
+             raise ValueError(f"Chunk artifact root does not exist: {root}")
+ 
+         chunk_files = sorted(root.glob("*.search_context_chunks.json"))
++        total_chunks_seen = 0
++        filtered_out_by_file_type = 0
+ 
+         results: List[Dict[str, Any]] = []
+         for chunk_file in chunk_files:
+@@ -52,11 +82,21 @@ class SearchContextQueryExpert:
+             source = artifact.get("source", {})
+             chunks = artifact.get("chunks", [])
+ 
++            logical_path = source.get("logical_path")
++            source_file_type = _derive_file_type(logical_path)
++
++            if allowed_file_types and source_file_type not in allowed_file_types:
++                filtered_out_by_file_type += len(chunks)
++                total_chunks_seen += len(chunks)
++                continue
++
+             for chunk in chunks:
++                total_chunks_seen += 1
+                 results.append(
+                     {
+                         "source_hash": source.get("source_hash"),
+-                        "logical_path": source.get("logical_path"),
++                        "logical_path": logical_path,
++                        "source_file_type": source_file_type,
+                         "chunk_id": chunk.get("chunk_id"),
+                         "chunk_index": chunk.get("chunk_index"),
+                         "text": chunk.get("content", {}).get("text", ""),
+@@ -67,6 +107,9 @@ class SearchContextQueryExpert:
+ 
+         return {
+             "query_text": query_text,
++            "allowed_file_types": sorted(allowed_file_types),
+             "candidate_count": len(results),
++            "total_chunks_seen": total_chunks_seen,
++            "filtered_out_by_file_type": filtered_out_by_file_type,
+             "results": results,
+         }
+\ No newline at end of file
+diff --git a/experts/llm_search/vector_search_expert.py b/experts/llm_search/vector_search_expert.py
+index ee13e301e..013c4b362 100644
+--- a/experts/llm_search/vector_search_expert.py
++++ b/experts/llm_search/vector_search_expert.py
+@@ -1,53 +1,60 @@
+ from __future__ import annotations
+ 
+ import json
+-import math
+ from pathlib import Path
+ 
++import faiss
++import numpy as np
++
+ 
+ class VectorSearchExpert:
++
+     def run(self, payload: dict) -> dict:
++
+         query_vector = payload["query_vector"]
+-        embedding_root = Path(payload.get("embedding_root", "artifacts/embeddings"))
+         top_k = int(payload.get("top_k", 5))
+ 
++        index_path = Path("artifacts/vector_index/vector_index.faiss")
++        metadata_path = Path("artifacts/vector_index/vector_metadata.json")
++
++        if not index_path.exists():
++            raise ValueError(f"Vector index not found: {index_path}")
++
++        if not metadata_path.exists():
++            raise ValueError(f"Vector metadata not found: {metadata_path}")
++
++        index = faiss.read_index(str(index_path))
++
++        metadata_artifact = json.loads(metadata_path.read_text(encoding="utf-8"))
++        entries = metadata_artifact.get("entries", [])
++
+         if not isinstance(query_vector, list) or not query_vector:
+             raise ValueError("VectorSearchExpert requires non-empty query_vector.")
+ 
++        query = np.array([query_vector], dtype="float32")
++        faiss.normalize_L2(query)
++
++        scores, indices = index.search(query, top_k)
++
+         results = []
+ 
+-        for path in sorted(embedding_root.glob("*.embedding.json")):
+-            data = json.loads(path.read_text(encoding="utf-8"))
+-            vector = data.get("vector", [])
++        for score, idx in zip(scores[0], indices[0]):
+ 
+-            if len(vector) != len(query_vector):
++            if idx < 0 or idx >= len(entries):
+                 continue
+ 
+-            score = self._cosine_similarity(query_vector, vector)
++            meta = entries[idx]
+ 
+             results.append({
+-                "logical_path": data.get("logical_path"),
+-                "chunk_index": data.get("chunk_index"),
+-                "chunk_id": data.get("chunk_id"),
+-                "score": score,
+-                "embedding_model": data.get("embedding_model"),
+-                "artifact_path": str(path),
++                "logical_path": meta.get("logical_path"),
++                "chunk_id": meta.get("chunk_id"),
++                "score": float(score),
++                "embedding_model": meta.get("embedding_model"),
++                "artifact_path": meta.get("artifact_path"),
+             })
+ 
+-        results.sort(key=lambda x: x["score"], reverse=True)
+-
+         return {
+             "artifact_type": "vector_search_result",
+-            "result_count": len(results[:top_k]),
+-            "results": results[:top_k],
+-        }
+-
+-    def _cosine_similarity(self, a: list[float], b: list[float]) -> float:
+-        dot = sum(x * y for x, y in zip(a, b))
+-        norm_a = math.sqrt(sum(x * x for x in a))
+-        norm_b = math.sqrt(sum(y * y for y in b))
+-
+-        if norm_a == 0.0 or norm_b == 0.0:
+-            return 0.0
+-
+-        return dot / (norm_a * norm_b)
+\ No newline at end of file
++            "result_count": len(results),
++            "results": results,
++        }
+\ No newline at end of file
+diff --git a/query_search_context.py b/query_search_context.py
+index 90ddd2bea..7fb31d065 100644
+--- a/query_search_context.py
++++ b/query_search_context.py
+@@ -42,6 +42,13 @@ def run_query_pipeline(
+     vector_search_expert = VectorSearchExpert()
+     hybrid_fusion_expert = HybridFusionExpert()
+ 
++    chunk_root_path = Path(chunk_root).resolve()
++
++    # artifacts/<dataset>/search_context_chunks
++    dataset_root = chunk_root_path.parent
++
++    embedding_root = dataset_root / "embeddings"
++
+     query_payload = {
+         "query_text": query,
+         "chunk_artifact_root": chunk_root,
+@@ -102,7 +109,7 @@ def run_query_pipeline(
+ 
+             vector_result = vector_search_expert.run({
+                 "query_vector": query_embedding["vector"],
+-                "embedding_root": "artifacts/test_source_mid/embeddings",
++                "embedding_root": str(embedding_root),
+                 "top_k": DEFAULT_TOP_K,
+             })
+ 
+@@ -116,6 +123,30 @@ def run_query_pipeline(
+                 "top_k": DEFAULT_TOP_K,
+             })
+ 
++            # Preserve per-expanded-query fusion observability.
++            diagnostics.setdefault("hybrid_fusion", {
++                "config": fused.get("fusion_config"),
++                "per_expanded_query": [],
++            })
++            diagnostics["hybrid_fusion"]["per_expanded_query"].append({
++                "expanded_query": expanded_query,
++                "lexical_input_count": len(lexical_results),
++                "vector_input_count": len(vector_result.get("results", [])),
++                "fused_count": len(fused.get("results", [])),
++                "top_items": [
++                    {
++                        "logical_path": r.get("logical_path"),
++                        "chunk_index": r.get("chunk_index"),
++                        "lexical_score": r.get("lexical_score"),
++                        "vector_score": r.get("vector_score"),
++                        "fusion_bonus": r.get("fusion_bonus"),
++                        "fusion_doc_boost": r.get("fusion_doc_boost"),
++                        "fusion_score": r.get("fusion_score"),
++                    }
++                    for r in fused.get("results", [])
++                ],
++            })
++
+             expanded_result = {
+                 "query_text": query,
+                 "results": fused["results"],
+@@ -192,6 +223,7 @@ def run_query_pipeline(
+ 
+     diagnostics["final_returned_count"] = len(result["results"])
+     diagnostics["results"] = []
++    diagnostics["retrieval_trace"] = []
+ 
+     source_seen_counts = {}
+     diversified_results = []
+@@ -222,18 +254,27 @@ def run_query_pipeline(
+         reverse=True,
+     )
+ 
+-    for r in result["results"]:
+-        diagnostics["results"].append({
++    for final_rank, r in enumerate(result["results"], start=1):
++        trace_row = {
++            "final_rank": final_rank,
+             "logical_path": r.get("logical_path"),
+             "chunk_index": r.get("chunk_index"),
+             "chunk_id": r.get("chunk_id"),
+-            "fusion_score": r.get("score"),
++            "seen_in_lexical": r.get("seen_in_lexical"),
++            "seen_in_vector": r.get("seen_in_vector"),
++            "lexical_score": r.get("lexical_score"),
++            "vector_score": r.get("vector_score"),
++            "fusion_score": r.get("fusion_score", r.get("score")),
++            "final_score": r.get("score"),
+             "raw_score": r.get("raw_score"),
+             "expansion_weight": r.get("expansion_weight"),
+             "matched_query": r.get("matched_query"),
+             "pre_diversity_score": r.get("pre_diversity_score"),
+             "source_diversity_weight": r.get("source_diversity_weight"),
+-        })
++        }
++        diagnostics["retrieval_trace"].append(trace_row)
++
++    diagnostics["results"] = result["results"]
+ 
+     assemble_payload = {
+         "query_text": query,
+@@ -251,6 +292,18 @@ def run_query_pipeline(
+     diagnostics["included_results"] = assembled.get("included_results", [])
+     diagnostics["excluded_results"] = assembled.get("excluded_results", [])
+ 
++    # Corpus scaling / size metrics for observability.
++    try:
++        chunk_files = list((dataset_root / "search_context_chunks").glob("*.search_context_chunks.json"))
++        diagnostics["corpus_document_count"] = len(chunk_files)
++    except Exception:
++        diagnostics["corpus_document_count"] = None
++    diagnostics["artifact_type"] = "query_diagnostics"
++    diagnostics["schema_version"] = "query_diagnostics_v1"
++    diagnostics["producer_expert"] = "query_search_context"
++    diagnostics["run_id"] = None
++    diagnostics["status"] = "COMPLETE"
++
+     answer_payload = {
+         "query_text": assembled.get("query_text"),
+         "context_text": assembled.get("context_text"),
+@@ -319,6 +372,9 @@ def main():
+     )
+ 
+     artifact_root = Path(args.artifact_root).resolve()
++    chunk_root_path = Path(args.chunk_root).resolve()
++    dataset_root = chunk_root_path.parent
++    artifact_root = dataset_root
+ 
+     result = pipeline["result"]
+     assembled = pipeline["assembled"]
+@@ -386,6 +442,8 @@ def main():
+ 
+     now_utc = int(datetime.now(timezone.utc).timestamp())
+ 
++    diagnostics["created_utc"] = now_utc
++
+     answer_result["artifact_type"] = "query_answer"
+     answer_result["schema_version"] = "query_answer_v1"
+     answer_result["created_utc"] = now_utc
+@@ -403,6 +461,7 @@ def main():
+ 
+     write_validated_artifact(answer_artifact_path, answer_result)
+     write_validated_artifact(query_artifact_path, assembled)
++    write_validated_artifact(diagnostics_path, diagnostics)
+ 
+ 
+ if __name__ == "__main__":

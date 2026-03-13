@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List
-
+from datetime import datetime, timezone
 from experts.base_expert import BaseExpert
+
+import hashlib
 
 
 class SearchContextChunkExpert(BaseExpert):
@@ -67,19 +69,30 @@ class SearchContextChunkExpert(BaseExpert):
             overlap_chars=overlap_chars,
         )
 
-        return {
+        now_utc = int(datetime.now(timezone.utc).timestamp())
+        run_id = payload.get("search_context_document", {}).get("run_id")
+
+        result = {
             "search_context_chunks": {
                 "artifact_type": "search_context_chunk_collection",
-                "schema_version": "v1",
-                "source": source,
+                "schema_version": "search_context_chunk_collection_v1",
+                "created_utc": now_utc,
+                "producer_expert": "SearchContextChunkExpert",
+                "run_id": run_id,
+                "status": "COMPLETE",
+                "source": {
+                    "source_path": source.get("source_path"),
+                    "logical_path": logical_path,
+                    "source_hash": source_hash,
+                },
                 "chunking": {
-                    "strategy": "fixed_chars_with_overlap",
-                    "target_chars": target_chars,
-                    "overlap_chars": overlap_chars,
+                    "strategy": "document_chunks_to_search_context_chunks",
+                    "chunk_count": len(normalized_chunks),
                 },
                 "chunks": normalized_chunks,
             }
         }
+        return result
 
     def _normalize_chunks(
         self,
@@ -121,10 +134,18 @@ class SearchContextChunkExpert(BaseExpert):
                 start_char = 0 if idx == 0 else normalized[-1]["position"]["end_char"] - overlap_chars
                 end_char = start_char + len(text)
 
+            text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+
             normalized.append(
                 {
                     "chunk_id": f"{logical_path}::{source_hash}::{idx:04d}",
                     "chunk_index": idx,
+                    "logical_path": logical_path,
+                    "source_path": doc.get("source", {}).get("source_path"),
+                    "document_hash": source_hash,
+                    "text": text,
+                    "text_hash": text_hash,
+                    "token_count": max(1, len(text) // 4),
                     "content": {
                         "text": text,
                         "char_count": len(text),

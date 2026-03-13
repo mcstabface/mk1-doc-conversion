@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
 
+from mk1_io.artifact_writer import write_validated_artifact
+
 
 class EmbeddingChunkExpert:
     def run(self, payload: dict) -> dict:
@@ -21,6 +23,7 @@ class EmbeddingChunkExpert:
         source = artifact.get("source", {})
         source_hash = source.get("source_hash") or artifact.get("document_hash")
         logical_path = source.get("logical_path") or artifact.get("logical_path")
+        run_id = artifact.get("run_id")
 
         if "chunks" not in artifact:
             raise ValueError("Chunk collection artifact missing 'chunks' field.")
@@ -34,38 +37,64 @@ class EmbeddingChunkExpert:
             raise ValueError("Chunk collection artifact has empty 'chunks' list.")
 
         written_paths: list[str] = []
+        skipped_valid_count = 0
+        embeddable_chunk_count = 0
 
         for chunk in chunks:
             text = chunk.get("content", {}).get("text", "").strip()
             if not text:
                 continue
+            embeddable_chunk_count += 1
 
-            vector = self._embed(endpoint, model, text)
             chunk_id = chunk["chunk_id"]
             safe_chunk_id = re.sub(r"[^A-Za-z0-9._-]+", "_", chunk_id)
             safe_model = re.sub(r"[^A-Za-z0-9._-]+", "_", model)
 
+            artifact_path = output_dir / f"{safe_chunk_id}.{safe_model}.embedding.json"
+
+            text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+            # ---- incremental check ----
+
+            if artifact_path.exists():
+                try:
+                    existing = json.loads(artifact_path.read_text(encoding="utf-8"))
+
+                    if (
+                        existing.get("text_hash") == text_hash
+                        and existing.get("embedding_model") == model
+                    ):
+                        skipped_valid_count += 1
+                        continue
+
+                except Exception:
+                    pass
+            vector = self._embed(endpoint, model, text)
+
+            now_utc = int(datetime.now(timezone.utc).timestamp())
+
             embedding_artifact = {
-                "artifact_type": "embedding_vector",
+                "artifact_type": "embedding_artifact",
+                "schema_version": "embedding_artifact_v1",
+                "created_utc": now_utc,
+                "producer_expert": "EmbeddingChunkExpert",
+                "run_id": run_id,
+                "status": "COMPLETE",
                 "chunk_id": chunk_id,
                 "logical_path": logical_path,
-                "chunk_index": chunk.get("chunk_index"),
                 "document_hash": source_hash,
+                "text_hash": text_hash,
                 "embedding_model": model,
-                "embedding_dimensions": len(vector),
-                "text_hash": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                "embedding_dim": len(vector),
                 "vector": vector,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "source_path": source.get("source_path"),
             }
 
             artifact_path = output_dir / f"{safe_chunk_id}.{safe_model}.embedding.json"
-            artifact_path.write_text(
-                json.dumps(embedding_artifact, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
+            write_validated_artifact(artifact_path, embedding_artifact)
             written_paths.append(str(artifact_path))
 
-        if not written_paths:
+        if embeddable_chunk_count == 0:
             raise ValueError("No chunk texts found to embed.")
 
         return {
@@ -74,6 +103,7 @@ class EmbeddingChunkExpert:
             "logical_path": logical_path,
             "embedding_model": model,
             "written_count": len(written_paths),
+            "skipped_valid_count": skipped_valid_count,
             "artifact_paths": written_paths,
         }
 
