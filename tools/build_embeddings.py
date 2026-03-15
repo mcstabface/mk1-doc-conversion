@@ -12,14 +12,16 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--chunk-root",
-        default="artifacts/test_source_mid/search_context_chunks",
+        default="artifacts/search_context_chunks",
         help="Directory containing search_context_chunks artifacts",
     )
     parser.add_argument(
         "--output-root",
-        default="artifacts/test_source_mid/embeddings",
+        default="artifacts/enron_full_v2/embeddings",
         help="Directory to write embedding artifacts",
     )
+
+
     parser.add_argument(
         "--source-contains",
         default=None,
@@ -54,7 +56,7 @@ def main() -> None:
                     "chunk_artifact_path": str(chunk_file),
                     "output_dir": output_dir,
                     "embedding_model": "nomic-embed-text",
-                    "endpoint": "http://localhost:11434/api/embeddings",
+                    "endpoint": "http://localhost:11434/api/embed",
                 }
             )
             total_written += result["written_count"]
