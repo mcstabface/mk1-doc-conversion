@@ -12,7 +12,10 @@ class QueryExpansionConfig:
             "statement of work": ["sow"],
             "sow": ["statement of work"],
             "deliverables": ["milestones", "outputs"],
-            "risk": ["issue", "watchlist"],
+            "risk": ["risk_management", "hedging"],
+            "risks": ["risk_management", "hedging"],
+            "issue": ["watchlist"],
+            "issues": ["watchlist"],
             "procurement": ["acquisition", "requisition", "purchasing"],
             "simulation": ["model", "modeling"],
         }
@@ -35,15 +38,6 @@ class QueryExpansionExpert:
         normalized_query = self._normalize(query_text)
         expansions: List[str] = [query_text]
         seen = {normalized_query}
-
-        # phrase-level expansion first
-        for phrase, synonyms in self.config.synonym_map.items():
-            if phrase in normalized_query:
-                for synonym in synonyms[: self.config.max_expansions_per_term]:
-                    expanded = normalized_query.replace(phrase, synonym)
-                    if expanded not in seen:
-                        expansions.append(expanded)
-                        seen.add(expanded)
 
         # token-level additive expansion
         tokens = normalized_query.split()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List
+from experts.llm_search.tokenization import tokenize
 import math
 import re
 
@@ -90,6 +91,48 @@ class SearchContextBm25RankExpert:
                 denom = term_tf + k1 * (1 - b + b * (doc_len / avg_doc_len)) if avg_doc_len > 0 else 1.0
                 score += idf * ((term_tf * (k1 + 1)) / denom)
 
+            token_set = set(tokens)
+
+            DISCUSSION_TERMS = {
+                "discuss", "discussed", "discussion", "issues", "concerns",
+                "meeting", "talk", "debate",
+            }
+
+            RISK_TERMS = {
+                "risk", "risks", "volatility", "swings", "prices",
+                "weather", "regulatory", "backlash", "competitive",
+                "dynamics", "turmoil",
+            }
+
+            STRATEGY_TERMS = {
+                "strategy", "strategies", "trading", "investment",
+                "market", "markets", "hedging", "industry", "structure",
+            }
+
+            EXEC_TERMS = {
+                "executive", "executives", "skilling", 
+            }
+
+            BIOGRAPHY_TERMS = {
+                "born", "died", "undergraduate", "master", "degree",
+                "professor", "university", "earned",
+            }
+
+            intent_bonus = 0.0
+
+            if token_set & DISCUSSION_TERMS:
+                intent_bonus += 0.10
+            if token_set & RISK_TERMS:
+                intent_bonus += 0.08
+            if token_set & STRATEGY_TERMS:
+                intent_bonus += 0.08
+            if token_set & EXEC_TERMS:
+                intent_bonus += 0.05
+            if token_set & BIOGRAPHY_TERMS:
+                intent_bonus -= 2.5
+
+            score += intent_bonus
+
             phrase_bonus = 0.0
             if query_text.lower() in result.get("text", "").lower():
                 phrase_bonus = 1.0
@@ -98,6 +141,9 @@ class SearchContextBm25RankExpert:
             ranked_result = dict(result)
             ranked_result["score"] = round(score, 6)
             ranked_result["matched_terms"] = matched_terms
+            ranked_result["phrase_bonus"] = phrase_bonus
+            ranked_result["bm25_core_score"] = round(score - intent_bonus - phrase_bonus, 6)
+            ranked_result["intent_bonus"] = round(intent_bonus, 6)
             ranked_result["phrase_bonus"] = phrase_bonus
             ranked.append(ranked_result)
 
@@ -122,5 +168,10 @@ class SearchContextBm25RankExpert:
         }
 
     def _tokenize_list(self, text: str) -> List[str]:
+        """
+        BM25 tokenization with canonical normalization rules, but preserving
+        frequency for scoring.
+        """
         raw = re.findall(r"[a-zA-Z0-9_]+", text.lower())
-        return [token for token in raw if len(token) >= 3]
+        canonical = tokenize(text)
+        return [token for token in raw if token in canonical]

@@ -18,6 +18,7 @@ from experts.query.query_expansion_expert import QueryExpansionExpert
 from experts.llm_search.query_embedding_expert import QueryEmbeddingExpert
 from experts.llm_search.vector_search_expert import VectorSearchExpert
 from experts.llm_search.hybrid_fusion_expert import HybridFusionExpert
+from experts.query.query_rewrite_expert import QueryRewriteExpert
 from experts.llm_search.mmr_diversity_ranker import (
     MMRDiversityRanker,
     MMRDiversityRankerConfig,
@@ -41,6 +42,7 @@ def run_query_pipeline(
     query_embedding_expert = QueryEmbeddingExpert()
     vector_search_expert = VectorSearchExpert()
     hybrid_fusion_expert = HybridFusionExpert()
+    query_rewrite_expert = QueryRewriteExpert()
 
     chunk_root_path = Path(chunk_root).resolve()
 
@@ -49,17 +51,48 @@ def run_query_pipeline(
 
     embedding_root = dataset_root / "embeddings"
 
+    run_id = datetime.now(timezone.utc).strftime("run_%Y%m%d_%H%M%S")
+
     query_payload = {
         "query_text": query,
         "chunk_artifact_root": chunk_root,
-        "top_k": DEFAULT_TOP_K,
+        "top_k": 100,
         "allowed_file_types": allowed_file_types or [],
     }
 
     query_result = query_expert.run(query_payload)
 
+    rewrite_result = query_rewrite_expert.run({
+        "query_text": query,
+    })
+    print("QUERY REWRITE:", rewrite_result)
+
     expansion_result = query_expansion_expert.expand(query)
-    expanded_queries = expansion_result["expanded_queries"]
+
+    query_variants = [
+        {"text": query, "kind": "original"}
+    ]
+
+    rewritten_query = rewrite_result.get("rewritten_query", query)
+    if rewritten_query and rewritten_query != query:
+        query_variants.append({
+            "text": rewritten_query,
+            "kind": "rewrite"
+        })
+
+    for q in expansion_result["expanded_queries"]:
+        if q not in [v["text"] for v in query_variants]:
+            query_variants.append({
+                "text": q,
+                "kind": "expansion"
+            })
+
+    expanded_queries = [v["text"] for v in query_variants]
+    print("EXPANDED QUERIES:", expanded_queries)
+
+    if ranker == "hybrid":
+        # Prevent hybrid mode from BM25-ranking the entire corpus.
+        query_result["results"] = query_result.get("results", [])[:2000]
 
     diagnostics = {
         "query_text": query,
@@ -78,13 +111,44 @@ def run_query_pipeline(
         ),
     }
 
+    diagnostics["query_rewrite"] = rewrite_result
+
+    if ranker == "hybrid":
+        diagnostics["prefiltered_candidate_count"] = len(query_result["results"])
+
     all_ranked_results = []
 
-    for expanded_query in expanded_queries:
+    hybrid_vector_results = []
+    vector_rank_lookup = {}
+
+    if ranker == "hybrid":
+        query_embedding = query_embedding_expert.run({
+            "query_text": query,
+            "embedding_model": "nomic-embed-text",
+            "endpoint": "http://localhost:11434/api/embed",
+        })
+
+        vector_result = vector_search_expert.run({
+            "query_vector": query_embedding["vector"],
+            "embedding_root": str(embedding_root),
+            "top_k": 50,
+        })
+
+        hybrid_vector_results = vector_result.get("results", [])
+        vector_rank_lookup = {
+            (item.get("logical_path"), item.get("chunk_index")): idx
+            for idx, item in enumerate(hybrid_vector_results, start=1)
+        }
+
+        diagnostics["vector_candidate_count"] = len(hybrid_vector_results)
+
+    for variant in query_variants:
+        expanded_query = variant["text"]
+        variant_kind = variant["kind"]
         rank_payload = {
             "query_text": expanded_query,
             "results": query_result["results"],
-            "top_k": DEFAULT_TOP_K,
+            "top_k": 100,
         }
 
         if ranker == "bm25":
@@ -97,31 +161,28 @@ def run_query_pipeline(
                 rank_result.get("results", []),
                 key=lambda x: float(x.get("score", 0.0)),
                 reverse=True,
-            )[:DEFAULT_TOP_K]
+            )[:100]
+
+            lexical_rank_lookup = {
+                (item.get("logical_path"), item.get("chunk_index")): idx
+                for idx, item in enumerate(lexical_results, start=1)
+            }
 
             diagnostics["lexical_candidate_count"] = len(lexical_results)
 
-            query_embedding = query_embedding_expert.run({
-                "query_text": query,
-                "embedding_model": "nomic-embed-text",
-                "endpoint": "http://localhost:11434/api/embeddings",
-            })
-
-            vector_result = vector_search_expert.run({
-                "query_vector": query_embedding["vector"],
-                "embedding_root": str(embedding_root),
-                "top_k": DEFAULT_TOP_K,
-            })
-
-            diagnostics["vector_candidate_count"] = len(vector_result.get("results", []))
-
             fused = hybrid_fusion_expert.run({
                 "lexical_results": lexical_results,
-                "vector_results": vector_result.get("results", []),
+                "vector_results": hybrid_vector_results,
                 "vector_bonus_weight": 0.10,
                 "vector_only_score_floor": 0.60,
-                "top_k": DEFAULT_TOP_K,
+                "top_k": 100,
             })
+
+            # Ensure ranks are present even if fusion expert changes.
+            for row in fused.get("results", []):
+                key = (row.get("logical_path"), row.get("chunk_index"))
+                row.setdefault("lexical_rank_before_fusion", lexical_rank_lookup.get(key))
+                row.setdefault("vector_rank_before_fusion", vector_rank_lookup.get(key))
 
             # Preserve per-expanded-query fusion observability.
             diagnostics.setdefault("hybrid_fusion", {
@@ -131,7 +192,7 @@ def run_query_pipeline(
             diagnostics["hybrid_fusion"]["per_expanded_query"].append({
                 "expanded_query": expanded_query,
                 "lexical_input_count": len(lexical_results),
-                "vector_input_count": len(vector_result.get("results", [])),
+                "vector_input_count": len(hybrid_vector_results),
                 "fused_count": len(fused.get("results", [])),
                 "top_items": [
                     {
@@ -158,7 +219,9 @@ def run_query_pipeline(
         original_token_count = len(query.split())
         expanded_token_count = len(expanded_query.split())
 
-        if expanded_query == query:
+        if variant_kind == "original":
+            expansion_weight = 1.00
+        elif variant_kind == "rewrite":
             expansion_weight = 1.00
         elif expanded_token_count > original_token_count:
             expansion_weight = 0.75
@@ -172,6 +235,7 @@ def run_query_pipeline(
             weighted_item["score"] = raw_score * expansion_weight
             weighted_item["matched_query"] = expanded_query
             weighted_item["expansion_weight"] = expansion_weight
+            weighted_item["query_variant_kind"] = variant_kind
             all_ranked_results.append(weighted_item)
 
     dedup = {}
@@ -255,26 +319,56 @@ def run_query_pipeline(
     )
 
     for final_rank, r in enumerate(result["results"], start=1):
+        source_key = r.get("logical_path") or r.get("source_path") or "unknown"
         trace_row = {
             "final_rank": final_rank,
             "logical_path": r.get("logical_path"),
             "chunk_index": r.get("chunk_index"),
             "chunk_id": r.get("chunk_id"),
+
+            "lexical_rank_before_fusion": r.get("lexical_rank_before_fusion"),
+            "vector_rank_before_fusion": r.get("vector_rank_before_fusion"),
+            "present_in_lexical": r.get("present_in_lexical", r.get("seen_in_lexical")),
+            "present_in_vector": r.get("present_in_vector", r.get("seen_in_vector")),
+            "match_origin": r.get("match_origin"),
+
             "seen_in_lexical": r.get("seen_in_lexical"),
             "seen_in_vector": r.get("seen_in_vector"),
+
             "lexical_score": r.get("lexical_score"),
             "vector_score": r.get("vector_score"),
-            "fusion_score": r.get("fusion_score", r.get("score")),
+            "lexical_score_normalized": r.get("lexical_score_normalized"),
+            "vector_score_normalized": r.get("vector_score_normalized"),
+
+            "fusion_score_pre_doc_boost": r.get("fusion_score_pre_doc_boost"),
+            "fusion_score_post_doc_boost": r.get("fusion_score_post_doc_boost", r.get("fusion_score")),
+
+            "pre_diversity_score": r.get("pre_diversity_score"),
+            "final_score_after_diversity": r.get("score"),
             "final_score": r.get("score"),
+
             "raw_score": r.get("raw_score"),
             "expansion_weight": r.get("expansion_weight"),
             "matched_query": r.get("matched_query"),
-            "pre_diversity_score": r.get("pre_diversity_score"),
+            "query_variant_kind": r.get("query_variant_kind"),
+
             "source_diversity_weight": r.get("source_diversity_weight"),
+
+            "source_occurrence_count": source_seen_counts.get(source_key, 0),
         }
         diagnostics["retrieval_trace"].append(trace_row)
 
     diagnostics["results"] = result["results"]
+
+    variant_counts = {}
+    for r in result["results"]:
+        kind = r.get("query_variant_kind", "unknown")
+        variant_counts[kind] = variant_counts.get(kind, 0) + 1
+
+    diagnostics["query_variant_summary"] = {
+        "counts": variant_counts,
+        "top_hit_kind": result["results"][0].get("query_variant_kind") if result["results"] else None,
+    }
 
     assemble_payload = {
         "query_text": query,
@@ -301,7 +395,7 @@ def run_query_pipeline(
     diagnostics["artifact_type"] = "query_diagnostics"
     diagnostics["schema_version"] = "query_diagnostics_v1"
     diagnostics["producer_expert"] = "query_search_context"
-    diagnostics["run_id"] = None
+    diagnostics["run_id"] = run_id
     diagnostics["status"] = "COMPLETE"
 
     answer_payload = {
@@ -319,6 +413,7 @@ def run_query_pipeline(
         "assembled": assembled,
         "answer_result": answer_result,
         "diagnostics": diagnostics,
+        "run_id": run_id,
     }
 
 def main():
@@ -380,6 +475,7 @@ def main():
     assembled = pipeline["assembled"]
     answer_result = pipeline["answer_result"]
     diagnostics = pipeline["diagnostics"]
+    run_id = pipeline.get("run_id")
 
     artifact_root = Path(args.artifact_root).resolve()
 
@@ -407,6 +503,8 @@ def main():
     print("QUERY CONTEXT ARTIFACT:", query_artifact_path)
     print("RANKER:", args.ranker)
     print("ALLOWED FILE TYPES:", args.allowed_file_types or "ALL")
+    variant_summary = diagnostics.get("query_variant_summary", {})
+    print("QUERY VARIANT SUMMARY:", variant_summary)
 
     print("\nTOP 5 RESULTS\n")
 
@@ -416,6 +514,8 @@ def main():
         for r in result["results"][:5]:
             print("SCORE:", r["score"])
             print(f"RAW SCORE: {r.get('raw_score', r.get('score'))}")
+            print("BM25 CORE SCORE:", r.get("bm25_core_score"))
+            print("INTENT BONUS:", r.get("intent_bonus"))
             print(f"EXPANSION WEIGHT: {r.get('expansion_weight', 1.0)}")
             print(f"MATCHED QUERY: {r.get('matched_query', args.query)}")
             print("PHRASE BONUS:", r.get("phrase_bonus", 0))
@@ -448,7 +548,7 @@ def main():
     answer_result["schema_version"] = "query_answer_v1"
     answer_result["created_utc"] = now_utc
     answer_result["producer_expert"] = "query_search_context"
-    answer_result["run_id"] = None
+    answer_result["run_id"] = run_id
     answer_result["status"] = "COMPLETE"
     answer_result["source_count"] = len(answer_result.get("sources", []))
 
@@ -456,7 +556,7 @@ def main():
     assembled["schema_version"] = "query_context_v1"
     assembled["created_utc"] = now_utc
     assembled["producer_expert"] = "query_search_context"
-    assembled["run_id"] = None
+    assembled["run_id"] = run_id
     assembled["status"] = "COMPLETE"
 
     write_validated_artifact(answer_artifact_path, answer_result)

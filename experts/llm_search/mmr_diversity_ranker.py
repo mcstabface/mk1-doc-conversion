@@ -72,7 +72,7 @@ class MMRDiversityRanker:
                 selected.append(best)
                 continue
 
-            best_index = 0
+            best_index = None
             best_mmr_score = -math.inf
 
             for index, candidate in enumerate(remaining):
@@ -85,6 +85,9 @@ class MMRDiversityRanker:
                     similarity = self._jaccard_similarity(candidate_tokens, prior_tokens)
                     if similarity > max_similarity:
                         max_similarity = similarity
+
+                if max_similarity >= 0.85:
+                    continue
 
                 same_source_penalty = 0.0
                 candidate_source = (
@@ -112,6 +115,9 @@ class MMRDiversityRanker:
                 if mmr_score > best_mmr_score:
                     best_mmr_score = mmr_score
                     best_index = index
+
+            if best_index is None:
+                break
 
             selected.append(remaining.pop(best_index))
 
