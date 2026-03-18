@@ -17,9 +17,10 @@ test_source/.~lock*
 
 .DS_Store
 
-# Large local datasets
-test_source_mid/
-test_source_large/
+.continue/
 
 # Optional: ignore all raw document dumps
 DocDump/
+test_source_enron/
+test_source_large/
+test_source_mid/
