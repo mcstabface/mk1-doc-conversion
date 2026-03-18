@@ -44,12 +44,12 @@ def main() -> None:
 
     for chunk_file in chunk_files:
         try:
-            artifact_data = json.loads(chunk_file.read_text(encoding="utf-8"))
-            source_path = artifact_data.get("source", {}).get("source_path", "")
-
-            if source_contains and source_contains not in source_path:
-                print(f"{chunk_file.name} -> SKIPPED: source filter mismatch")
-                continue
+            if source_contains:
+                artifact_data = json.loads(chunk_file.read_text(encoding="utf-8"))
+                source_path = artifact_data.get("source", {}).get("source_path", "")
+                if source_contains not in source_path:
+                    print(f"{chunk_file.name} -> SKIPPED: source filter mismatch")
+                    continue
 
             result = expert.run(
                 {

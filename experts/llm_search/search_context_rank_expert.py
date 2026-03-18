@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List
-import re
+from experts.llm_search.tokenization import tokenize
 
 
 class SearchContextRankExpert:
@@ -9,7 +9,7 @@ class SearchContextRankExpert:
     Deterministic V1 ranking over query results.
 
     Strategy:
-    - lowercase tokenize query and chunk text
+    - canonical tokenization via shared tokenizer
     - score by count of overlapping unique terms
     - add phrase bonus if the full query appears in the chunk
     - drop zero-score results
@@ -28,12 +28,12 @@ class SearchContextRankExpert:
         if top_k <= 0:
             raise ValueError("top_k must be > 0.")
 
-        query_terms = self._tokenize(query_text)
+        query_terms = tokenize(query_text)
 
         ranked: List[Dict[str, Any]] = []
         for result in results:
             text = result.get("text", "")
-            text_terms = self._tokenize(text)
+            text_terms = tokenize(text)
 
             overlap = sorted(query_terms & text_terms)
             score = len(overlap)
@@ -70,12 +70,4 @@ class SearchContextRankExpert:
             "ranked_count": len(filtered),
             "returned_count": len(top_results),
             "results": top_results,
-        }
-
-    def _tokenize(self, text: str) -> set[str]:
-        raw = re.findall(r"[a-zA-Z0-9_]+", text.lower())
-        return {
-            token
-            for token in raw
-            if len(token) >= 3
         }

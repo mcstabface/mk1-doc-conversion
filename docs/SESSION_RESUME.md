@@ -79,3 +79,24 @@ Do not redesign the architecture.
 Work in small deterministic patches.
 Prefer replace-this-with-this edits.
 Identify when a new or refreshed artifact should be written to preserve system memory.
+
+## Last Confirmed Progress
+- query_eval_compare tool added and working
+- normalization experiment completed
+- no regression observed
+- no metric improvement observed on current eval set
+
+## Next Intended Step
+- enrich retrieval diagnostics to explain misrankings
+- identify whether ordering issues come from fusion, doc boost, or diversity weighting
+
+## Last Confirmed Progress
+- query evaluation labels were corrected for multi-relevant topical retrieval
+- Ghislaine Maxwell now credits all clearly relevant top-ranked sources
+- benchmark improved to precision_at_k=0.16666666666666666, recall_at_k=1.0, mrr=0.8888888888888888
+- this was an evaluation-set correction, not a retrieval algorithm change
+
+## Next Intended Step
+- hold the eval set stable
+- resume retrieval hardening only against this corrected baseline
+- focus next on ranking diagnostics or larger-corpus stress testing

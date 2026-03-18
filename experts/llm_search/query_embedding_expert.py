@@ -13,13 +13,23 @@ class QueryEmbeddingExpert:
         if not query_text:
             raise ValueError("QueryEmbeddingExpert requires non-empty query_text.")
 
-        body = json.dumps({"model": model, "prompt": query_text}).encode("utf-8")
+        body = json.dumps({"model": model, "input": query_text}).encode("utf-8")
         req = Request(endpoint, data=body, headers={"Content-Type": "application/json"})
 
         with urlopen(req, timeout=120) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+            raw = resp.read().decode("utf-8")
 
-        vector = data["embedding"]
+        data = json.loads(raw)
+
+        if "embedding" in data:
+            vector = data["embedding"]
+        elif "embeddings" in data and data["embeddings"]:
+            vector = data["embeddings"][0]
+        else:
+            raise ValueError(
+                f"Embedding response missing 'embedding'/'embeddings' field. "
+                f"Top-level keys: {list(data.keys())}. Response preview: {raw[:1000]}"
+            )
 
         return {
             "artifact_type": "query_embedding",

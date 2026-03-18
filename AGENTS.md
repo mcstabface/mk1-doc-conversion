@@ -1,3 +1,6 @@
+Default AI mode: READ-ONLY ANALYSIS.
+Code edits require explicit user command: APPLY PATCH.
+
 # MK1 Development Agent Instructions
 
 You are assisting development of the MK1 Deterministic Retrieval Engine.
@@ -115,3 +118,41 @@ Do not redesign the architecture.
 - Do not hardcode dataset names, artifact roots, or corpus-specific paths in reusable pipeline code.
 - Derive paths from provided inputs or config.
 - Tool defaults may be dataset-scoped only when explicitly intended for local evaluation convenience.
+
+All experts must remain dataset-agnostic.
+Dataset selection must occur only in tools, configs, or pipeline entrypoints.
+Experts must never reference specific dataset names.
+
+# AI Assistant Operating Rules
+
+Default mode: READ ONLY.
+
+When interacting with this repository:
+
+- Do NOT modify files unless the user explicitly says: APPLY PATCH
+- When asked analysis questions, return code references only
+- Do not invent placeholder edits, TODOs, or speculative code
+- Never convert an analysis request into an edit request
+- Never use Edit/MultiEdit unless the user explicitly says: APPLY PATCH
+
+Response expectations for code inspection:
+
+Return only:
+- file path
+- function or location
+- exact code snippet
+
+If nothing matches, return:
+NOT FOUND IN PROVIDED CODE PATHS
+
+Patch procedure:
+
+If the user says APPLY PATCH:
+
+1. First show:
+   - files to change
+   - reason for change
+   - minimal diff plan
+2. Wait for approval unless the user says APPLY NOW
+3. Keep patches minimal and local
+4. Do not introduce TODOs or placeholders

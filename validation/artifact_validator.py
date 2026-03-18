@@ -471,6 +471,44 @@ def validate_query_eval_run_manifest(artifact):
 
 
 # --------------------------------------------------
+# Query Eval Compare Artifact
+# --------------------------------------------------
+
+QUERY_EVAL_COMPARE_REQUIRED = [
+    "dataset",
+    "inputs",
+    "top_level_metrics",
+    "summary",
+    "per_query_deltas",
+]
+
+
+def validate_query_eval_compare(artifact):
+
+    validate_common_fields(artifact)
+
+    if artifact["artifact_type"] != "query_eval_compare":
+        raise ValueError("artifact_type mismatch for query_eval_compare")
+
+    _require_fields(artifact, QUERY_EVAL_COMPARE_REQUIRED, "query_eval_compare")
+
+    if not isinstance(artifact["dataset"], str):
+        raise ValueError("dataset must be str")
+
+    if not isinstance(artifact["inputs"], dict):
+        raise ValueError("inputs must be dict")
+
+    if not isinstance(artifact["top_level_metrics"], dict):
+        raise ValueError("top_level_metrics must be dict")
+
+    if not isinstance(artifact["summary"], dict):
+        raise ValueError("summary must be dict")
+
+    if not isinstance(artifact["per_query_deltas"], list):
+        raise ValueError("per_query_deltas must be list")
+
+
+# --------------------------------------------------
 # Dispatcher
 # --------------------------------------------------
 
@@ -510,6 +548,9 @@ def validate_artifact(artifact: Dict[str, Any]):
 
     elif artifact_type == "query_eval_run_manifest":
         validate_query_eval_run_manifest(artifact)
+
+    elif artifact_type == "query_eval_compare":
+        validate_query_eval_compare(artifact)
 
     else:
         raise ValueError(f"Unknown artifact_type: {artifact_type}")

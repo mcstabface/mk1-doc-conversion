@@ -102,64 +102,66 @@ class SearchContextChunkExpert(BaseExpert):
         target_chars: int,
         overlap_chars: int,
     ) -> List[Dict[str, Any]]:
-        """
-        For the first V3 implementation, reuse existing chunk text if present and
-        re-emit it under a stricter retrieval-layer schema.
 
-        This is intentionally boring and deterministic.
-        """
         input_chunks = doc.get("chunks", [])
         if not isinstance(input_chunks, list):
             raise ValueError("search_context_document.chunks must be a list.")
 
         normalized: List[Dict[str, Any]] = []
+        chunk_index = 0
 
-        for idx, raw_chunk in enumerate(input_chunks):
+        for raw_chunk in input_chunks:
             content = raw_chunk.get("content", {})
             text = content.get("text")
 
-            # Backward-compat fallback for the simpler bootstrap artifact shape
             if text is None:
                 text = raw_chunk.get("text", "")
 
             if not isinstance(text, str):
-                raise ValueError(f"Chunk {idx} text must be a string.")
+                raise ValueError("Chunk text must be a string.")
 
-            position = raw_chunk.get("position", {})
-            start_char = position.get("start_char")
-            end_char = position.get("end_char")
+            text_len = len(text)
 
-            if start_char is None or end_char is None:
-                # Deterministic fallback if legacy chunk lacks explicit offsets
-                start_char = 0 if idx == 0 else normalized[-1]["position"]["end_char"] - overlap_chars
-                end_char = start_char + len(text)
+            # Split oversized chunks
+            start = 0
+            while start < text_len:
+                end = min(start + target_chars, text_len)
+                chunk_text = text[start:end]
 
-            text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                text_hash = hashlib.sha256(chunk_text.encode("utf-8")).hexdigest()
 
-            normalized.append(
-                {
-                    "chunk_id": f"{logical_path}::{source_hash}::{idx:04d}",
-                    "chunk_index": idx,
-                    "logical_path": logical_path,
-                    "source_path": doc.get("source", {}).get("source_path"),
-                    "document_hash": source_hash,
-                    "text": text,
-                    "text_hash": text_hash,
-                    "token_count": max(1, len(text) // 4),
-                    "content": {
-                        "text": text,
-                        "char_count": len(text),
-                        "token_estimate": max(1, len(text) // 4),
-                    },
-                    "position": {
-                        "start_char": int(start_char),
-                        "end_char": int(end_char),
-                    },
-                    "embedding_ready": True,
-                }
-            )
+                normalized.append(
+                    {
+                        "chunk_id": f"{logical_path}::{source_hash}::{chunk_index:04d}",
+                        "chunk_index": chunk_index,
+                        "logical_path": logical_path,
+                        "source_path": doc.get("source", {}).get("source_path"),
+                        "document_hash": source_hash,
+                        "text": chunk_text,
+                        "text_hash": text_hash,
+                        "token_count": max(1, len(chunk_text) // 4),
+                        "content": {
+                            "text": chunk_text,
+                            "char_count": len(chunk_text),
+                            "token_estimate": max(1, len(chunk_text) // 4),
+                        },
+                        "position": {
+                            "start_char": start,
+                            "end_char": end,
+                        },
+                        "embedding_ready": True,
+                    }
+                )
+
+                chunk_index += 1
+
+                if end == text_len:
+                    break
+
+                start = end - overlap_chars
 
         chunk_count = len(normalized)
+
         for chunk in normalized:
             chunk["chunk_count"] = chunk_count
 

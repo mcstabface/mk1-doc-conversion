@@ -21,12 +21,32 @@ from experts.conversion.search_context_registry_expert import SearchContextRegis
 from experts.conversion.conversion_registry_expert import ConversionRegistryExpert
 from experts.conversion.search_context_registry_expert import SearchContextRegistryExpert
 from experts.llm_search.search_context_chunk_expert import SearchContextChunkExpert
+from experts.conversion.email_to_search_context_expert import EmailToSearchContextExpert
 
 
 import hashlib
 import sqlite3
 import time
 
+def _is_maildir_email(path_str: str) -> bool:
+    from pathlib import Path
+
+    path = Path(path_str)
+
+    parent_names = {p.name.lower() for p in path.parents}
+
+    maildir_markers = {
+        "maildir",
+        "inbox",
+        "sent",
+        "sent_items",
+        "_sent_mail",
+        "deleted_items",
+        "discussion_threads",
+        "all_documents",
+    }
+
+    return bool(parent_names & maildir_markers) and path.suffix in {"", "."}
 
 class ConversionDirector:
     def __init__(self, db_path: str, pdf_output: Path, manifest_dir: Path, mode: str = "pdf"):
@@ -182,6 +202,8 @@ class ConversionDirector:
         inventory = run_inventory(source_root)
         expanded = self._expand_inventory(inventory)
         fingerprint_expert = FingerprintExpert()
+        email_expert = EmailToSearchContextExpert()
+
         if self.mode == "context":
             registry_expert = SearchContextRegistryExpert(db_path=self.db_path)
         elif self.mode == "pdf":
@@ -198,7 +220,10 @@ class ConversionDirector:
             a["physical_path"]
             for a in expanded
             if "physical_path" in a
-            and str(a["physical_path"]).lower().endswith(allowed_ext)
+            and (
+                str(a["physical_path"]).lower().endswith(allowed_ext)
+                or (self.mode == "context" and _is_maildir_email(a["physical_path"]))
+            )
         ]
 
         fingerprint_payload = {
@@ -353,6 +378,8 @@ class ConversionDirector:
 
                 try:
                     if self.mode == "context":
+                        is_maildir_email = _is_maildir_email(artifact["physical_path"])
+
                         expert_payload = {
                             "physical_path": artifact["physical_path"],
                             "logical_path": artifact["logical_path"],
@@ -361,7 +388,12 @@ class ConversionDirector:
                             "artifact_dir": str(self.pdf_output.parent / "search_context"),
                         }
 
-                        expert_result = search_context_expert.run(expert_payload)
+                        if is_maildir_email:
+                            expert_result = email_expert.run(expert_payload)
+                            converter_used = "email-to-search-context-v1"
+                        else:
+                            expert_result = search_context_expert.run(expert_payload)
+                            converter_used = "doc-to-search-context-v1"
 
                         self._persist_search_context_registry_row(
                             source_path=artifact["physical_path"],
@@ -404,7 +436,7 @@ class ConversionDirector:
                             artifact_id=artifact_id,
                             run_id=run_id,
                             output_pdf_path=str(expert_result["artifact_path"]),
-                            converter_used="doc-to-search-context-v1",
+                            converter_used=converter_used,
                             conversion_status="SUCCESS",
                             error_message=None,
                         )
@@ -430,7 +462,9 @@ class ConversionDirector:
                         run_id=run_id,
                         output_pdf_path="",
                         converter_used=(
-                            "doc-to-search-context-v1"
+                            "email-to-search-context-v1"
+                            if (self.mode == "context" and _is_maildir_email(artifact["physical_path"]))
+                            else "doc-to-search-context-v1"
                             if self.mode == "context"
                             else "docx-to-pdf"
                         ),
@@ -443,9 +477,28 @@ class ConversionDirector:
                         "status": "FAILED",
                         "error": str(e),
                     }
-            for artifact in planned_convert_artifacts:
-                result = _convert_one(artifact)
-                conversions.append(result)
+            all_maildir_email = all(
+                _is_maildir_email(artifact["physical_path"])
+                for artifact in planned_convert_artifacts
+            )
+
+            if self.mode == "context" and all_maildir_email:
+                future_to_path = {}
+
+                with ThreadPoolExecutor(max_workers=4) as executor:
+                    for artifact in planned_convert_artifacts:
+                        future = executor.submit(_convert_one, artifact)
+                        future_to_path[future] = artifact["logical_path"]
+
+                    completed = []
+                    for future in as_completed(future_to_path):
+                        completed.append(future.result())
+
+                conversions.extend(sorted(completed, key=lambda x: x["logical_path"]))
+            else:
+                for artifact in planned_convert_artifacts:
+                    result = _convert_one(artifact)
+                    conversions.append(result)
 
             failures = [c for c in conversions if c["status"] == "FAILED"]
 

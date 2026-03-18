@@ -10,6 +10,7 @@ SUPPORTED_EXTENSIONS = {
     ".rtf",
     ".zip",
     ".pdf",
+    ".",
 }
 
 

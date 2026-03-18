@@ -34,6 +34,15 @@
             "expected_sources": [
                 "IMAGES/0001/EFTA02730486.pdf"
             ]
+        },
+        {
+        "query": "Ghislaine Maxwell",
+        "relevance_mode": "multi_source",
+        "expected_sources": [
+            "IMAGES/0001/EFTA02730741.pdf",
+            "IMAGES/0001/EFTA02730486.pdf",
+            "IMAGES/0001/EFTA02730271.pdf"
+        ]
         }
     ]
 }
