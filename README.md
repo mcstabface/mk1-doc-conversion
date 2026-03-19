@@ -1,239 +1,430 @@
-MK1 Document Conversion & Retrieval System
-MK1 is a deterministic modular expert system for document ingestion, artifact generation, and hybrid retrieval.
-The system converts raw documents into structured artifacts, generates searchable chunks and embeddings, and performs hybrid lexical + semantic retrieval over the resulting corpus.
-The design prioritizes:
-    • determinism
-    • auditability
-    • modular architecture
-    • artifact-driven pipelines
-    • enterprise-grade observability
-MK1 intentionally avoids agentic orchestration. Every step in the pipeline is implemented as a single-purpose expert module.
+MK1 Modular Expert System (MES)
+Deterministic Document Ingestion + Retrieval Engine
 
-Core Design Principles
-MK1 follows several architectural invariants.
-Deterministic pipelines
-Every stage produces explicit artifacts that can be inspected and reproduced.
-Expert modules
-Each stage is implemented as a small, isolated component called an Expert.
-Artifact-driven architecture
-All system state is stored as artifacts rather than hidden runtime memory.
-Auditability
-Every stage of the system can be replayed and inspected.
-LLM isolation
-Large language models never operate on raw documents.
-They operate only on curated artifacts produced by deterministic pipelines.
+Overview
+MK1 is a deterministic, artifact-driven document retrieval system designed for enterprise-scale data.
+It converts raw documents into structured artifacts and retrieves evidence-backed answers using a hybrid approach (keyword + semantic search).
+This is not a chatbot.
+It is controlled retrieval infrastructure.
 
-Current System Status
-Current version: V3 – Hybrid Retrieval Layer
-The system now supports:
-    • deterministic document ingestion
-    • normalized search context artifacts
-    • chunk generation
-    • lexical ranking (BM25)
-    • semantic vector search
-    • hybrid retrieval
-    • diversity reranking
-    • deterministic answer extraction
-The pipeline is fully artifact-driven and auditable.
+What This Solves
+Enterprise document systems typically fail because:
+    • Important context is split across documents
+    • Exact wording rarely matches user queries
+    • Large documents dominate results
+    • Retrieval results are inconsistent and not explainable
+MK1 addresses this by:
+    • combining keyword + semantic retrieval
+    • enforcing diversity across documents
+    • reconstructing context during retrieval
+    • producing fully traceable outputs
 
-System Architecture
-The retrieval pipeline currently operates as follows:
-Query
- │
- ▼
-Query Expansion Expert
- │
- ▼
-Search Context Query Expert
- │
- ▼
-Ranker Selection
- │
- ├─ overlap
- ├─ bm25
- └─ hybrid
- │
- ├─ BM25 lexical ranking
- │
- ├─ Query Embedding
- │
- ├─ Vector Search
- │
- └─ Hybrid Fusion
- │
- ▼
-MMR Diversity Reranking
- │
- ▼
+Core Principles
+    • Deterministic → same input = same output
+    • Artifact-driven → every stage produces inspectable data
+    • Modular → each step is handled by a specific “expert”
+    • Explainable → no black-box behavior
+
+High-Level Pipeline
+Documents
+  ↓
+Normalization
+  ↓
+Chunking
+  ↓
+Embeddings
+  ↓
+Vector Index
+  ↓
+Hybrid Retrieval (BM25 + Vector)
+  ↓
+Ranking + Diversity (MMR)
+  ↓
 Context Assembly
- │
- ▼
-Answer Artifact
-Hybrid ranking combines lexical and semantic retrieval while maintaining lexical precision as the primary signal. 
-MK1_V3_RETRIEVAL_COMPLETION_ART…
+  ↓
+Answer Generation
 
-Directory Structure
-mk1-doc-conversion
-experts/
-    ingestion/
-    llm_search/
-        bm25_rank_expert.py
-        embedding_chunk_expert.py
-        vector_search_expert.py
-        hybrid_fusion_expert.py
-tools/
-    build_embeddings.py
-artifacts/
-    search_context_chunks/
-    embeddings/
-    query_context/
-    query_answer/
-query_search_context.py
-Artifacts are written to disk at every stage of the pipeline.
+Quick Start
+1. Install Dependencies
+    • Python 3.10+
+    • Ollama (for embeddings + local models)
+Install Python dependencies:
+pip install -r requirements.txt
 
-Artifact Types
-Search Context Chunk
-Location:
-artifacts/search_context_chunks/
-Represents a retrieval unit extracted from a document.
-Fields typically include:
-logical_path
-chunk_index
-text
-token_estimate
-source_hash
+2. Start Ollama
+ollama serve
+Pull required models:
+ollama pull nomic-embed-text
+ollama pull qwen2.5:3b-instruct
 
-Embedding Artifact
-Location:
-artifacts/embeddings/
-Each chunk generates one embedding vector.
-Embedding model:
-nomic-embed-text
-dimension: 768
-Example artifact:
-Procurement_Directive_404-Omega_<hash>_0000.nomic-embed-text.embedding.json
+3. Ingest Documents
+python main.py \
+  --source ./your_documents \
+  --artifact-root ./artifacts/run_001
+This will generate:
+    • search context documents
+    • chunk artifacts
+    • embeddings
+    • vector index
 
-Query Context Artifact
-Location:
-artifacts/query_context/
-Contains:
-    • ranked chunks
-    • query expansion metadata
-    • ranking diagnostics
-
-Query Answer Artifact
-Location:
-artifacts/query_answer/
-Contains:
-    • extracted answer evidence
-    • source references
-    • ranking metadata
-
-Ranking Strategies
-The system supports three ranking modes.
-Overlap
-Baseline ranking using token overlap.
-Purpose:
-    • debugging
-    • baseline comparison
-
-BM25
-Primary lexical ranking algorithm.
-Characteristics:
-    • term frequency scoring
-    • inverse document frequency weighting
-    • deterministic scoring
-BM25 provides strong precision for enterprise documents.
-
-Hybrid (V3)
-Hybrid retrieval combines lexical ranking with semantic vector search.
-Fusion strategy:
-vector_bonus_weight = 0.10
-vector_only_score_floor = 0.60
-Behavior:
-    • lexical ranking forms the backbone
-    • vector matches add a small relevance bonus
-    • vector-only results require strong similarity
-This preserves lexical precision while improving recall. 
-MK1_V3_RETRIEVAL_COMPLETION_ART…
-
-Running a Query
-Example query execution:
+4. Run a Query
 python query_search_context.py \
-  --query "procurement risk" \
-  --chunk-root artifacts/search_context_chunks \
-  --ranker hybrid \
-  --max-chunks-per-source 1
-Outputs:
-artifacts/query_context/*.json
-artifacts/query_answer/*.json
-The CLI also prints debugging diagnostics including ranking details and evidence sources.
+  --query "your question here" \
+  --artifact-root ./artifacts/run_001 \
+  --ranker hybrid
+Output includes:
+    • answer
+    • supporting evidence
+    • ranked chunks
+    • diagnostics
 
-Embedding Generation
-Embeddings are generated from chunk artifacts using:
-tools/build_embeddings.py
-Run:
-python -m tools.build_embeddings
-This tool:
-    • scans chunk artifacts
-    • generates embeddings
-    • writes embedding artifacts
-Embeddings are generated using a local Ollama model.
-Example Ollama endpoint:
-http://localhost:11434/api/embeddings
+Key Concepts (Simple)
+Chunking
+Documents are split into smaller pieces (“chunks”).
+Why:
+    • makes retrieval possible
+Limitation:
+    • meaning can be split across chunks
+MK1 handles this during retrieval (not by perfecting chunking).
 
-Current Test Corpus
-The V3 system has been validated using a small controlled corpus:
-    • Procurement Directive 404-Omega
-    • Deep Space Risk & Issue Log
-    • Operation Luminous Apex
-    • Griffin Plumage SOP
-    • Exoplanetary Biosphere SOW
-The dataset was intentionally small to allow deterministic debugging.
+Hybrid Retrieval
+Two methods combined:
+    • Keyword search (BM25) → precise
+    • Semantic search (embeddings) → flexible
+Result:
+    • accurate + tolerant of wording differences
+
+Diversity (MMR)
+Prevents results from being dominated by one document.
+Ensures:
+    • broader evidence
+    • better answers
+
+Context Assembly
+Controls how much information is used to answer a query.
+Includes:
+    • max total context size
+    • max chunks per document
+
+Adjacency (Context Repair)
+When a chunk is selected, nearby chunks can also be included.
+Purpose:
+    • restore meaning lost during chunking
+
+Configuration (Important Knobs)
+Chunking
+Parameter	Description
+chunk_size	Size of each chunk
+overlap	Overlap between chunks
+Guideline:
+    • Larger = more context
+    • Smaller = more precision
+
+Retrieval
+Parameter	Description
+ranker	bm25 / hybrid
+vector_bonus_weight	weight of semantic signal
+vector_only_score_floor	threshold for semantic-only results
+
+Diversity
+Parameter	Description
+lambda_weight	balance relevance vs diversity
+
+Context Assembly
+Parameter	Description
+max_context_chars	total context size
+max_chunks_per_source	limit per document
+
+Output Artifacts
+Each query produces:
+Query Answer
+artifacts/query_answer/
+    • final answer
+    • supporting evidence
+
+Query Context
+artifacts/query_context/
+    • selected chunks
+    • source references
+
+Diagnostics
+artifacts/query_diagnostics/
+    • ranking decisions
+    • scoring details
+    • candidate counts
+
+What to Expect
+Works well when:
+    • documents are moderately structured
+    • queries are real user questions
+    • hybrid retrieval is enabled
 
 Known Limitations
-These limitations are expected at the V3 stage.
-Corpus Size
-Testing has been performed on a small dataset.
-Future testing targets:
-~100 documents
-~3000 documents
+    • chunk boundaries can split meaning
+    • ranking still needs tuning in edge cases
+    • large datasets require optimized vector indexing
+    • embedding generation can be slow without batching
 
-Vector Search Performance
-Vector search currently uses brute-force cosine similarity.
-This approach will not scale indefinitely.
-Possible future solutions:
-    • FAISS
-    • HNSW
-    • vector databases
+Recommended Usage Pattern
+If starting fresh:
+    1. ingest a small dataset
+    2. run 5–10 real queries
+    3. evaluate results
+    4. adjust:
+        ◦ chunk size
+        ◦ max_chunks_per_source
+    5. scale up
 
-Embedding Pipeline
-Embeddings currently run as a batch process.
-Future improvements may include:
-    • incremental embedding updates
-    • embedding validation
-    • embedding coverage diagnostics
+Design Philosophy
+Most systems try to:
+perfectly split documents
+MK1 assumes:
+document splitting is imperfect
+and compensates during retrieval by:
+    • combining search methods
+    • enforcing diversity
+    • reconstructing context
 
-V4 Roadmap
-V4 development will focus on scaling and system hardening.
-Primary goals:
-    • large corpus testing
-    • PDF ingestion pipeline
-    • scalable vector indexing
-    • retrieval diagnostics
-    • ranking tuning
-    • artifact schema tightening
-    • search observability
+Future Improvements
+    • ANN vector search (FAISS/HNSW tuning)
+    • smarter chunking (structure-aware)
+    • improved ranking signals
+    • UI enhancements
+    • retrieval benchmarking expansion
 
-Repository
-GitHub repository:
-https://github.com/mcstabface/mk1-doc-conversion
+Contributing / Extending
+The system is built around modular experts.
+To extend:
+    • add new expert under experts/
+    • define input/output artifacts
+    • plug into pipeline
+Do not:
+    • introduce non-deterministic behavior
+    • bypass artifact generation
 
 Summary
-MK1 is a deterministic retrieval architecture designed to demonstrate a modular expert system approach to document processing and hybrid search.
-At the completion of V3 the system now supports:
-    • lexical search
-    • semantic vector retrieval
-    • hybrid fusion ranking
-    • deterministic artifact pipelines
-This provides a stable foundation for scaling the system in V4.
+MK1 provides:
+    • deterministic ingestion
+    • hybrid retrieval
+    • explainable outputs
+    • scalable architecture
+It is designed for:
+reliable answers from real-world, messy documents
+
+Here is a clean, production-quality README you can drop into the repo. It’s written for developers who want to use the system quickly without needing to understand MES deeply.
+
+MK1 Modular Expert System (MES)
+Deterministic Document Ingestion + Retrieval Engine
+
+Overview
+MK1 is a deterministic, artifact-driven document retrieval system designed for enterprise-scale data.
+It converts raw documents into structured artifacts and retrieves evidence-backed answers using a hybrid approach (keyword + semantic search).
+This is not a chatbot.
+It is controlled retrieval infrastructure.
+
+What This Solves
+Enterprise document systems typically fail because:
+    • Important context is split across documents
+    • Exact wording rarely matches user queries
+    • Large documents dominate results
+    • Retrieval results are inconsistent and not explainable
+MK1 addresses this by:
+    • combining keyword + semantic retrieval
+    • enforcing diversity across documents
+    • reconstructing context during retrieval
+    • producing fully traceable outputs
+
+Core Principles
+    • Deterministic → same input = same output
+    • Artifact-driven → every stage produces inspectable data
+    • Modular → each step is handled by a specific “expert”
+    • Explainable → no black-box behavior
+
+High-Level Pipeline
+Documents
+  ↓
+Normalization
+  ↓
+Chunking
+  ↓
+Embeddings
+  ↓
+Vector Index
+  ↓
+Hybrid Retrieval (BM25 + Vector)
+  ↓
+Ranking + Diversity (MMR)
+  ↓
+Context Assembly
+  ↓
+Answer Generation
+
+Quick Start
+1. Install Dependencies
+    • Python 3.10+
+    • Ollama (for embeddings + local models)
+Install Python dependencies:
+pip install -r requirements.txt
+
+2. Start Ollama
+ollama serve
+Pull required models:
+ollama pull nomic-embed-text
+ollama pull qwen2.5:3b-instruct
+
+3. Ingest Documents
+python main.py \
+  --source ./your_documents \
+  --artifact-root ./artifacts/run_001
+This will generate:
+    • search context documents
+    • chunk artifacts
+    • embeddings
+    • vector index
+
+4. Run a Query
+python query_search_context.py \
+  --query "your question here" \
+  --artifact-root ./artifacts/run_001 \
+  --ranker hybrid
+Output includes:
+    • answer
+    • supporting evidence
+    • ranked chunks
+    • diagnostics
+
+Key Concepts (Simple)
+Chunking
+Documents are split into smaller pieces (“chunks”).
+Why:
+    • makes retrieval possible
+Limitation:
+    • meaning can be split across chunks
+MK1 handles this during retrieval (not by perfecting chunking).
+
+Hybrid Retrieval
+Two methods combined:
+    • Keyword search (BM25) → precise
+    • Semantic search (embeddings) → flexible
+Result:
+    • accurate + tolerant of wording differences
+
+Diversity (MMR)
+Prevents results from being dominated by one document.
+Ensures:
+    • broader evidence
+    • better answers
+
+Context Assembly
+Controls how much information is used to answer a query.
+Includes:
+    • max total context size
+    • max chunks per document
+
+Adjacency (Context Repair)
+When a chunk is selected, nearby chunks can also be included.
+Purpose:
+    • restore meaning lost during chunking
+
+Configuration (Important Knobs)
+Chunking
+Parameter	Description
+chunk_size	Size of each chunk
+overlap	Overlap between chunks
+Guideline:
+    • Larger = more context
+    • Smaller = more precision
+
+Retrieval
+Parameter	Description
+ranker	bm25 / hybrid
+vector_bonus_weight	weight of semantic signal
+vector_only_score_floor	threshold for semantic-only results
+
+Diversity
+Parameter	Description
+lambda_weight	balance relevance vs diversity
+
+Context Assembly
+Parameter	Description
+max_context_chars	total context size
+max_chunks_per_source	limit per document
+
+Output Artifacts
+Each query produces:
+Query Answer
+artifacts/query_answer/
+    • final answer
+    • supporting evidence
+
+Query Context
+artifacts/query_context/
+    • selected chunks
+    • source references
+
+Diagnostics
+artifacts/query_diagnostics/
+    • ranking decisions
+    • scoring details
+    • candidate counts
+
+What to Expect
+Works well when:
+    • documents are moderately structured
+    • queries are real user questions
+    • hybrid retrieval is enabled
+
+Known Limitations
+    • chunk boundaries can split meaning
+    • ranking still needs tuning in edge cases
+    • large datasets require optimized vector indexing
+    • embedding generation can be slow without batching
+
+Recommended Usage Pattern
+If starting fresh:
+    1. ingest a small dataset
+    2. run 5–10 real queries
+    3. evaluate results
+    4. adjust:
+        ◦ chunk size
+        ◦ max_chunks_per_source
+    5. scale up
+
+Design Philosophy
+Most systems try to:
+perfectly split documents
+MK1 assumes:
+document splitting is imperfect
+and compensates during retrieval by:
+    • combining search methods
+    • enforcing diversity
+    • reconstructing context
+
+Future Improvements
+    • ANN vector search (FAISS/HNSW tuning)
+    • smarter chunking (structure-aware)
+    • improved ranking signals
+    • UI enhancements
+    • retrieval benchmarking expansion
+
+Contributing / Extending
+The system is built around modular experts.
+To extend:
+    • add new expert under experts/
+    • define input/output artifacts
+    • plug into pipeline
+Do not:
+    • introduce non-deterministic behavior
+    • bypass artifact generation
+
+Summary
+MK1 provides:
+    • deterministic ingestion
+    • hybrid retrieval
+    • explainable outputs
+    • scalable architecture
+It is designed for:
+reliable answers from real-world, messy documents
+
+If you want, next step I’d recommend is:
+    • a “dev onboarding checklist” (5–10 min setup guide your team can follow without you)
