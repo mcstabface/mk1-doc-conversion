@@ -11,25 +11,35 @@ from experts.conversion.docx_to_pdf_expert import ensure_libreoffice_available
 
 def get_runtime_root() -> Path:
     """
-    Return the directory where the program should read/write runtime artifacts.
+    Return the directory where bundled read-only assets live.
 
-    Works both when running from source and when packaged with PyInstaller.
+    When running from a PyInstaller one-file executable,
+    assets are extracted to sys._MEIPASS.
     """
 
     if getattr(sys, "frozen", False):
-        # Running as a bundled executable
+        if hasattr(sys, "_MEIPASS"):
+            return Path(sys._MEIPASS)
+
+        # fallback (older behavior)
         return Path(sys.executable).parent
-    else:
-        # Running from source
-        return Path(__file__).resolve().parent
+
+    return Path(__file__).resolve().parent
 
 runtime_root = get_runtime_root()
 
-DEFAULT_DB_PATH = runtime_root / "artifacts" / "db" / "conversion_memory.db"
-DEFAULT_SCHEMA_PATH = runtime_root / "artifacts" / "db" / "schema.sql"
-DEFAULT_PDF_OUTPUT = runtime_root / "artifacts" / "pdfs"
-DEFAULT_SOURCE_ROOT = runtime_root / "test_source"
-DEFAULT_MANIFEST_DIR = runtime_root / "artifacts" / "manifests"
+bundle_root = get_runtime_root()
+
+if getattr(sys, "frozen", False):
+    work_root = Path(sys.executable).parent
+else:
+    work_root = bundle_root
+
+DEFAULT_SCHEMA_PATH = bundle_root / "artifacts" / "db" / "schema.sql"
+DEFAULT_DB_PATH = work_root / "artifacts" / "db" / "conversion_memory.db"
+DEFAULT_PDF_OUTPUT = work_root / "artifacts" / "pdfs"
+DEFAULT_MANIFEST_DIR = work_root / "artifacts" / "manifests"
+DEFAULT_SOURCE_ROOT = work_root / "test_source"
 
 
 
