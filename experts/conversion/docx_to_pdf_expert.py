@@ -49,9 +49,6 @@ def convert_docx_to_pdf(artifact: Dict, output_dir: Path) -> Path:
 
     soffice = ensure_libreoffice_available()
 
-    print("DEBUG source_path:", source_path)
-    print("DEBUG exists:", source_path.exists())
-
     subprocess.run(
         [
             soffice,
