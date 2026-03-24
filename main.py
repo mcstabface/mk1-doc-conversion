@@ -77,9 +77,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--mode",
-        choices=["pdf", "context"],
+        choices=["pdf", "context", "embeddings"],
         default="pdf",
-        help="Conversion mode: pdf (default) or context",
+        help="Conversion mode: pdf, context, or embeddings",
     )
     parser.add_argument(
         "--artifact-root",
@@ -109,7 +109,23 @@ def main() -> None:
     schema_path = DEFAULT_SCHEMA_PATH
     mode = args.mode
 
-    ensure_libreoffice_available()
+    if mode in ("pdf", "context"):
+        ensure_libreoffice_available()
+
+    if mode == "embeddings":
+        from tools.build_embeddings import main as build_embeddings_main
+
+        # Reconstruct CLI arguments for embeddings tool
+        sys.argv = [
+            "build_embeddings",
+            "--chunk-root",
+            str(artifact_root / "search_context_chunks"),
+            "--output-root",
+            str(artifact_root / "embeddings"),
+        ]
+
+        build_embeddings_main()
+        return
 
     if mode == "context":
         pdf_output = artifact_root / "pdfs"
