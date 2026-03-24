@@ -58,6 +58,12 @@ jobs:
         run: |
           pyinstaller mk1-doc-conversion.spec --noconfirm --clean
 
+      - name: Smoke test packaged executable
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path .\empty_test_source | Out-Null
+          .\dist\mk1-doc-conversion.exe --mode pdf --source .\empty_test_source
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
