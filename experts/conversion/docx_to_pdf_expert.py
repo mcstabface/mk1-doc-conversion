@@ -47,9 +47,14 @@ def convert_docx_to_pdf(artifact: Dict, output_dir: Path) -> Path:
     short_hash = hashlib.sha256(logical_path.encode("utf-8")).hexdigest()[:12]
     output_pdf = output_dir / f"{source_path.stem}__{short_hash}.pdf"
 
+    soffice = ensure_libreoffice_available()
+
+    print("DEBUG source_path:", source_path)
+    print("DEBUG exists:", source_path.exists())
+
     subprocess.run(
         [
-            "libreoffice",
+            soffice,
             "--headless",
             "--convert-to",
             "pdf",
