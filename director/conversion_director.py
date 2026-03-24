@@ -455,6 +455,32 @@ class ConversionDirector:
                             "search_chunk_artifact_type": chunk_result["search_context_chunks"].get("artifact_type"),
                             "search_chunk_artifact_path": str(chunk_artifact_path),
                         }
+                    elif self.mode == "pdf":
+                        source_path = artifact["physical_path"]
+
+                        output_pdf_path = convert_docx_to_pdf(
+                            artifact=artifact,
+                            output_dir=self.pdf_output,
+                        )
+
+                        persist_conversion_receipt(
+                            db_path=self.db_path,
+                            artifact_id=artifact_id,
+                            run_id=run_id,
+                            output_pdf_path=str(output_pdf_path),
+                            converter_used="docx-to-pdf",
+                            conversion_status="SUCCESS",
+                            error_message=None,
+                        )
+
+                        return {
+                            "logical_path": artifact["logical_path"],
+                            "physical_path": artifact["physical_path"],
+                            "source_hash": artifact["source_hash"],
+                            "status": "SUCCESS",
+                            "output_pdf_path": str(output_pdf_path),
+                            "converter_used": "docx-to-pdf",
+                        }
                 except Exception as e:
                     persist_conversion_receipt(
                         db_path=self.db_path,

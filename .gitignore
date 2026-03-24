@@ -24,3 +24,22 @@ DocDump/
 test_source_enron/
 test_source_large/
 test_source_mid/
+
+# PyInstaller
+build/
+dist/
+*.spec.tmp
+*.toc
+*.pyz
+*.pkg
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
