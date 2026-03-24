@@ -58,6 +58,11 @@ jobs:
         run: |
           pyinstaller mk1-doc-conversion.spec --noconfirm --clean
 
+      - name: Show executable hash
+        shell: powershell
+        run: |
+          Get-FileHash .\dist\mk1-doc-conversion.exe
+
       - name: Smoke test packaged executable
         shell: powershell
         run: |
@@ -67,5 +72,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mk1-doc-conversion-exe
+          name: mk1-doc-conversion-exe-${{ github.run_number }}
           path: dist/mk1-doc-conversion.exe
