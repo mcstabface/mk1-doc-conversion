@@ -66,13 +66,20 @@ jobs:
       - name: Inspect bundled exe for schema.sql
         shell: powershell
         run: |
-          python -m PyInstaller.utils.cliutils.archive_viewer .\dist\mk1-doc-conversion.exe -l | Select-String "schema.sql"
+          $match = python -m PyInstaller.utils.cliutils.archive_viewer .\dist\mk1-doc-conversion.exe -l | Select-String "schema.sql"
+          if (-not $match) {
+            throw "schema.sql not found inside bundled executable"
+          }
+          $match
 
       - name: Smoke test packaged executable
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path .\empty_test_source | Out-Null
           .\dist\mk1-doc-conversion.exe --mode pdf --source .\empty_test_source
+          if ($LASTEXITCODE -ne 0) {
+            throw "Packaged executable smoke test failed"
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
