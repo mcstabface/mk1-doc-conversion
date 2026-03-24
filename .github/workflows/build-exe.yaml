@@ -66,7 +66,7 @@ jobs:
       - name: Inspect bundled exe for schema.sql
         shell: powershell
         run: |
-          $match = python -m PyInstaller.utils.cliutils.archive_viewer .\dist\mk1-doc-conversion.exe -l | Select-String "schema.sql"
+          $match = py -3.11 -m PyInstaller.utils.cliutils.archive_viewer .\dist\mk1-doc-conversion.exe -l | Select-String "schema.sql"
           if (-not $match) {
             throw "schema.sql not found inside bundled executable"
           }
