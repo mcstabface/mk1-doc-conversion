@@ -1,0 +1,65 @@
+name: Build Windows Executable
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install LibreOffice
+        shell: powershell
+        run: |
+          choco install libreoffice-fresh -y
+
+      - name: Verify LibreOffice
+        shell: powershell
+        run: |
+          $paths = @(
+            "C:\Program Files\LibreOffice\program\soffice.exe",
+            "C:\Program Files (x86)\LibreOffice\program\soffice.exe"
+          )
+
+          $soffice = $paths | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if (-not $soffice) {
+            throw "LibreOffice installed, but soffice.exe was not found."
+          }
+
+          $sofficeDir = Split-Path $soffice
+          echo "SOFFICE_PATH=$soffice" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "$sofficeDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+          & $soffice --version
+
+      - name: Install dependencies
+        shell: powershell
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          if (Test-Path requirements.txt) {
+              pip install -r requirements.txt
+          }
+
+      - name: Build executable
+        shell: powershell
+        run: |
+          pyinstaller mk1-doc-conversion.spec --noconfirm --clean
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mk1-doc-conversion-exe
+          path: dist/mk1-doc-conversion.exe
