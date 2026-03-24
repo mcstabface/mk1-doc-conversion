@@ -30,8 +30,6 @@ runtime_root = get_runtime_root()
 
 bundle_root = get_runtime_root()
 
-print("MK1 BUILD MARKER: 2026-03-24-schema-fix-12")
-
 if getattr(sys, "frozen", False):
     work_root = Path(sys.executable).parent
 else:
