@@ -66,7 +66,11 @@ class ConversionDirector:
 
                 for m in members:
                     if m.get("expansion_status") == "FAILED":
-                        expansion_failures.append(m)
+                        expansion_failures.append({
+                            "logical_path": m.get("logical_path"),
+                            "reason": m.get("error_message"),
+                            "container_path": m.get("container_path"),
+                        })
                         print(
                             f"[ZIP-EXPAND:ERROR] Skipping corrupt member: "
                             f"{m['logical_path']} reason={m.get('error_message')}"
@@ -540,40 +544,67 @@ class ConversionDirector:
                     conversions.append(result)
 
             failures = [c for c in conversions if c["status"] == "FAILED"]
+            total_failures = len(failures) + len(expansion_failures)
 
             finalize_run(
                 db_path=self.db_path,
                 run_id=run_id,
                 files_converted=len([c for c in conversions if c["status"] == "SUCCESS"]),
-
-                total_failures = len(failures) + len(expansion_failures),
-
                 files_failed=total_failures,
                 status="SUCCESS" if total_failures == 0 else "FAILED",
-
                 notes=(
                     f"artifact_mode=search_context "
                     f"planned_convert={planned_convert_count} "
                     f"planned_skip={planned_skip_count} "
                     f"completed_success={len([c for c in conversions if c['status'] == 'SUCCESS'])} "
-                    f"completed_failed={len(failures)}"
+                    f"completed_failed={len(failures)} "
+                    f"expansion_failures={len(expansion_failures)}"
                 ),
             )
 
-            emit_run_manifest(
-                run_id=run_id,
-                manifest_dir=self.manifest_dir,
-                conversions=conversions,
-            )
+            total_failures = len(failures) + len(expansion_failures)
 
-            return {
+            skipped = [
+                {
+                    "logical_path": artifact["logical_path"],
+                    "physical_path": artifact["physical_path"],
+                    "source_hash": artifact["source_hash"],
+                    "skip_reason": artifact.get("skip_reason"),
+                    "artifact_path": artifact.get("artifact_path"),
+                    "artifact_hash": artifact.get("artifact_hash"),
+                    "artifact_type": artifact.get("artifact_type"),
+                    "registry_run_id": artifact.get("registry_run_id"),
+                }
+                for artifact in planned_skip_artifacts
+            ]
+
+            result = {
                 "run_id": run_id,
+                "status": "FAILED",
+                "failed_count": total_failures,
+                "expansion_failures_count": len(expansion_failures),
+                "source_root": str(source_root),
+                "artifact_output": str(self.pdf_output.parent / "search_context"),
+                "inventory_count": len(inventory),
+                "expanded_count": len(expanded),
+                "planned_total_count": planned_total_count,
+                "planned_convert_count": planned_convert_count,
+                "planned_skip_count": planned_skip_count,
+                "convert_count": planned_convert_count,
+                "skip_count": planned_skip_count,
+                "converted_count": len([c for c in conversions if c["status"] == "SUCCESS"]),
                 "converted_paths": [
                     c["logical_path"] for c in conversions if c["status"] == "SUCCESS"
                 ],
+                "conversions": conversions,
                 "failed": failures,
+                "skipped": skipped,
                 "expansion_failures": expansion_failures,
             }
+
+            emit_run_manifest(self.manifest_dir, result)
+
+            return result
 
         except Exception:
             finalize_run(

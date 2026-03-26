@@ -159,6 +159,11 @@ def main() -> None:
     print(f"converted_count: {result.get('converted_count', 0)}")
     print(f"failed_count: {result.get('failed_count', 0)}")
 
+    print(
+        f"expansion_failures_count: "
+        f"{len(result.get('expansion_failures', []))}"
+    )
+
     print("\nCONVERSIONS")
     if result["conversions"]:
         for conversion in result["conversions"]:
@@ -184,6 +189,18 @@ def main() -> None:
             )
     else:
         print("No skipped items.")
+
+        print("\nEXPANSION FAILURES")
+        expansion_failures = result.get("expansion_failures", [])
+        if expansion_failures:
+            for failure in expansion_failures:
+                print(
+                    f"FAILED_EXPANSION | "
+                    f"{failure.get('logical_path', '')} | "
+                    f"reason={failure.get('reason', 'unknown')}"
+                )
+        else:
+            print("No expansion failures.")
 
     print("\nRECENT RUNS (AUDIT)")
     for row in fetch_recent_runs(str(db_path), limit=args.recent_runs):
