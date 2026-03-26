@@ -55,15 +55,27 @@ class ConversionDirector:
         self.manifest_dir = manifest_dir
         self.mode = mode
 
-    def _expand_inventory(self, inventory: List[Dict]) -> List[Dict]:
+    def _expand_inventory(self, inventory: List[Dict]) -> tuple[List[Dict], List[Dict]]:
         expanded: List[Dict] = []
+        expansion_failures: List[Dict] = []
 
         for artifact in inventory:
             expanded.append(artifact)
             if artifact["source_type"] == "zip":
-                expanded.extend(expand_zip_artifacts(artifact))
+                members = expand_zip_artifacts(artifact)
 
-        return expanded
+                for m in members:
+                    if m.get("expansion_status") == "FAILED":
+                        expansion_failures.append(m)
+                        print(
+                            f"[ZIP-EXPAND:ERROR] Skipping corrupt member: "
+                            f"{m['logical_path']} reason={m.get('error_message')}"
+                        )
+                        continue
+
+                    expanded.append(m)
+
+        return expanded, expansion_failures
 
     def _sha256_file(self, path: str, chunk_size: int = 1024 * 1024) -> str:
         h = hashlib.sha256()
@@ -200,7 +212,8 @@ class ConversionDirector:
 
     def run(self, source_root: Path) -> Dict:
         inventory = run_inventory(source_root)
-        expanded = self._expand_inventory(inventory)
+        expanded, expansion_failures = self._expand_inventory(inventory)
+
         fingerprint_expert = FingerprintExpert()
         email_expert = EmailToSearchContextExpert()
 
@@ -532,8 +545,12 @@ class ConversionDirector:
                 db_path=self.db_path,
                 run_id=run_id,
                 files_converted=len([c for c in conversions if c["status"] == "SUCCESS"]),
-                files_failed=len(failures),
-                status="SUCCESS" if not failures else "FAILED",
+
+                total_failures = len(failures) + len(expansion_failures),
+
+                files_failed=total_failures,
+                status="SUCCESS" if total_failures == 0 else "FAILED",
+
                 notes=(
                     f"artifact_mode=search_context "
                     f"planned_convert={planned_convert_count} "
@@ -555,6 +572,7 @@ class ConversionDirector:
                     c["logical_path"] for c in conversions if c["status"] == "SUCCESS"
                 ],
                 "failed": failures,
+                "expansion_failures": expansion_failures,
             }
 
         except Exception:

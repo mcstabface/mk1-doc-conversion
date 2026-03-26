@@ -29,7 +29,23 @@ def expand_zip_artifacts(zip_artifact: Dict) -> List[Dict]:
             if ext not in SUPPORTED_MEMBER_EXTENSIONS:
                 continue
 
-            member_bytes = zf.read(info.filename)
+            try:
+                member_bytes = zf.read(info.filename)
+            except (zipfile.BadZipFile, RuntimeError, OSError) as e:
+                results.append(
+                    {
+                        "physical_path": str(zip_path),
+                        "container_path": str(zip_path),
+                        "logical_path": f'{zip_artifact["logical_path"]}::{info.filename}',
+                        "source_type": ext.lstrip("."),
+                        "size_bytes": 0,
+                        "modified_utc": None,
+                        "sha256": None,
+                        "expansion_status": "FAILED",
+                        "error_message": str(e),
+                    }
+                )
+                continue
 
             results.append(
                 {
@@ -40,6 +56,8 @@ def expand_zip_artifacts(zip_artifact: Dict) -> List[Dict]:
                     "size_bytes": len(member_bytes),
                     "modified_utc": None,
                     "sha256": sha256_bytes(member_bytes),
+                    "expansion_status": "SUCCESS",
+                    "error_message": None,
                 }
             )
 

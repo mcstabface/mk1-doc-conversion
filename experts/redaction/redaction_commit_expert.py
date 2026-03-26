@@ -17,23 +17,8 @@ class RedactionCommitExpert(BaseExpert):
 
     def run(self, payload: Dict[str, Any]) -> Dict[str, Any]:
 
-        source_artifact_id = payload["source_artifact_id"]
-
-        redacted_document = payload["redacted_document"]
-
-        profile = payload["profile"]
-
-        ruleset_version = payload["ruleset_version"]
-
-        ruleset_hash = payload["ruleset_hash"]
-
-        plan_id = payload["plan_id"]
-
-        approval_id = payload["approval_id"]
-
-        required_fields = [
+         required_fields = [
             "source_artifact_id",
-            "redacted_document",
             "profile",
             "ruleset_version",
             "ruleset_hash",
@@ -51,6 +36,13 @@ class RedactionCommitExpert(BaseExpert):
             raise ValueError(
                 f"Missing required payload fields: {missing}"
             )
+        
+        source_artifact_id = payload["source_artifact_id"]
+        profile = payload["profile"]
+        ruleset_version = payload["ruleset_version"]
+        ruleset_hash = payload["ruleset_hash"]
+        plan_id = payload["plan_id"]
+        approval_id = payload["approval_id"]
 
         artifact_output_path = Path(
             payload["artifact_output_path"]
@@ -99,6 +91,33 @@ class RedactionCommitExpert(BaseExpert):
                 raise RuntimeError(
                     "Commit blocked: plan approval not verified."
                 )
+
+            planned_source = cursor.execute(
+                """
+                SELECT 1
+                FROM redaction_plan_suggestions
+                WHERE plan_id = ?
+                  AND artifact_id = ?
+                LIMIT 1
+                """,
+                (plan_id, source_artifact_id),
+            ).fetchone()
+
+            if not planned_source:
+                raise RuntimeError(
+                    f"Source artifact {source_artifact_id} is not part of plan_id={plan_id}."
+                )
+
+            redacted_document = self._build_redacted_document(
+                conn,
+                source_artifact_id=source_artifact_id,
+                plan_id=plan_id,
+                profile=profile,
+                ruleset_version=ruleset_version,
+                ruleset_hash=ruleset_hash,
+                approval_id=approval_id,
+                now_utc=now_utc,
+            )
 
             write_validated_artifact(
                 artifact_output_path,
@@ -154,7 +173,7 @@ class RedactionCommitExpert(BaseExpert):
 
             if existing:
                 raise RuntimeError(
-                    "Active redaction already exists for this source."
+                    f"Commit blocked: active redaction already exists for source_artifact_id={source_artifact_id}."
                 )
 
             cursor.execute(
@@ -195,4 +214,133 @@ class RedactionCommitExpert(BaseExpert):
                 "artifact_path": str(artifact_output_path),
                 "artifact_hash": artifact_hash,
             }
+        }
+    
+    def _build_redacted_document(
+        self,
+        conn,
+        *,
+        source_artifact_id: int,
+        plan_id: int,
+        profile: str,
+        ruleset_version: str,
+        ruleset_hash: str,
+        approval_id: int,
+        now_utc: int,
+    ) -> dict:
+
+        cursor = conn.cursor()
+
+        # Resolve active truth artifact
+
+        source_row = cursor.execute(
+            """
+            SELECT
+                s.physical_path,
+                s.logical_path,
+                s.sha256
+            FROM source_artifacts s
+            WHERE s.artifact_id = ?
+            """,
+            (source_artifact_id,),
+        ).fetchone()
+
+        if not source_row:
+            raise RuntimeError(
+                f"Source artifact not found: {source_artifact_id}"
+            )
+
+        override_row = cursor.execute(
+            """
+            SELECT active_artifact_path
+            FROM artifact_truth_overrides
+            WHERE source_artifact_id = ?
+            """,
+            (source_artifact_id,),
+        ).fetchone()
+
+        if override_row:
+            artifact_path = override_row["active_artifact_path"]
+        else:
+            registry_row = cursor.execute(
+                """
+                SELECT artifact_path
+                FROM search_context_registry
+                WHERE
+                    source_path = ?
+                    AND source_hash = ?
+                    AND artifact_type = 'search_context_document'
+                """,
+                (
+                    source_row["physical_path"],
+                    source_row["sha256"],
+                ),
+            ).fetchone()
+
+            if not registry_row:
+                raise RuntimeError(
+                    "No active search_context_document artifact found."
+                )
+
+            artifact_path = registry_row["artifact_path"]
+
+        import json
+        from pathlib import Path
+
+        path = Path(artifact_path).resolve()
+
+        with open(path, "r", encoding="utf-8") as f:
+            artifact = json.load(f)
+
+        text = artifact.get("text_content")
+
+        if not isinstance(text, str):
+            raise RuntimeError(
+                "Artifact missing valid text_content."
+            )
+
+        suggestions = cursor.execute(
+            """
+            SELECT
+                original_text,
+                replacement_text
+            FROM redaction_plan_suggestions
+            WHERE plan_id = ?
+            ORDER BY suggestion_id ASC
+            """,
+            (plan_id,),
+        ).fetchall()
+
+        if not suggestions:
+            raise RuntimeError(
+                f"No redaction suggestions found for plan_id={plan_id}."
+            )
+
+        applied_count = 0
+
+        for row in suggestions:
+            original = row["original_text"]
+            replacement = row["replacement_text"]
+
+            if original in text:
+                text = text.replace(original, replacement)
+                applied_count += 1
+
+        if applied_count == 0:
+            raise RuntimeError(
+                f"No redactions were applied for plan_id={plan_id}."
+            )
+
+        return {
+            "artifact_type": "search_context_document",
+            "text_content": text,
+            "redaction": {
+                "profile": profile,
+                "plan_id": plan_id,
+                "approval_id": approval_id,
+                "ruleset_version": ruleset_version,
+                "ruleset_hash": ruleset_hash,
+                "applied_count": applied_count,
+                "created_utc": now_utc,
+            },
         }
