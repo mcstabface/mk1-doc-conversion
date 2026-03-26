@@ -1,0 +1,163 @@
+[
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$158",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 183
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$158",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 184
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$600",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 185
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$158",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 186
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$100",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 187
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$585",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 188
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$460,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 189
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$1,420,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 190
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$3,690,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 191
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$45,600,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 192
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$227,000,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 193
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$9,600,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 194
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$87,000,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 195
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$20,800,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 196
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$98,800,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 197
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$80,500,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 198
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$10,535,335",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 199
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$600",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 200
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$600",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 201
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$600",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 202
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$158",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 203
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$158",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 204
+    },
+    {
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$14,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v2",
+        "suggestion_id": 205
+    }
+]

@@ -19,3 +19,11 @@ def find_artifact_id(db_path: str, logical_path: str, sha256: str) -> Optional[i
         row = cursor.fetchone()
 
     return row[0] if row else None
+
+def resolve_active_artifact(
+    db_path: str,
+    logical_path: str,
+    sha256: str,
+    artifact_type: str = "search_context_document",
+) -> dict | None:
+    ...

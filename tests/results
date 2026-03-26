@@ -1,0 +1,642 @@
+[
+    {
+        "artifact_id": 17,
+        "category": "SWIFT_BIC",
+        "original_text": "NIONGAPI",
+        "replacement_text": "[SWIFT_BIC]",
+        "rule_id": "swift_bic_v1",
+        "suggestion_id": 1
+    },
+    {
+        "artifact_id": 17,
+        "category": "SWIFT_BIC",
+        "original_text": "CANTWELL",
+        "replacement_text": "[SWIFT_BIC]",
+        "rule_id": "swift_bic_v1",
+        "suggestion_id": 2
+    },
+    {
+        "artifact_id": 17,
+        "category": "SWIFT_BIC",
+        "original_text": "GRASSIER",
+        "replacement_text": "[SWIFT_BIC]",
+        "rule_id": "swift_bic_v1",
+        "suggestion_id": 3
+    },
+    {
+        "artifact_id": 17,
+        "category": "SWIFT_BIC",
+        "original_text": "MPAYLANO",
+        "replacement_text": "[SWIFT_BIC]",
+        "rule_id": "swift_bic_v1",
+        "suggestion_id": 4
+    },
+    {
+        "artifact_id": 17,
+        "category": "SWIFT_BIC",
+        "original_text": "COLORADO",
+        "replacement_text": "[SWIFT_BIC]",
+        "rule_id": "swift_bic_v1",
+        "suggestion_id": 5
+    },
+    {
+        "artifact_id": 17,
+        "category": "SWIFT_BIC",
+        "original_text": "CAROLINA",
+        "replacement_text": "[SWIFT_BIC]",
+        "rule_id": "swift_bic_v1",
+        "suggestion_id": 6
+    },
+    {
+        "artifact_id": 17,
+        "category": "SWIFT_BIC",
+        "original_text": "LANKFORD",
+        "replacement_text": "[SWIFT_BIC]",
+        "rule_id": "swift_bic_v1",
+        "suggestion_id": 7
+    },
+    {
+        "artifact_id": 17,
+        "category": "SWIFT_BIC",
+        "original_text": "OKLAHOMA",
+        "replacement_text": "[SWIFT_BIC]",
+        "rule_id": "swift_bic_v1",
+        "suggestion_id": 8
+    },
+    {
+        "artifact_id": 17,
+        "category": "SWIFT_BIC",
+        "original_text": "PARRASSO",
+        "replacement_text": "[SWIFT_BIC]",
+        "rule_id": "swift_bic_v1",
+        "suggestion_id": 9
+    },
+    {
+        "artifact_id": 17,
+        "category": "SWIFT_BIC",
+        "original_text": "CAROLINA",
+        "replacement_text": "[SWIFT_BIC]",
+        "rule_id": "swift_bic_v1",
+        "suggestion_id": 10
+    },
+    {
+        "artifact_id": 17,
+        "category": "SWIFT_BIC",
+        "original_text": "SENNEMAN",
+        "replacement_text": "[SWIFT_BIC]",
+        "rule_id": "swift_bic_v1",
+        "suggestion_id": 11
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$158",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 12
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$2",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 13
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$158",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 14
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$1",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 15
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$600",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 16
+    },
+    {
+        "artifact_id": 17,
+        "category": "BANK_ACCOUNT",
+        "original_text": "1411494",
+        "replacement_text": "[BANK_ACCOUNT]",
+        "rule_id": "bank_account_v1",
+        "suggestion_id": 17
+    },
+    {
+        "artifact_id": 17,
+        "category": "CREDIT_CARD",
+        "original_text": "000119312521016405",
+        "replacement_text": "[CREDIT_CARD]",
+        "rule_id": "credit_card_v1",
+        "suggestion_id": 18
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$158",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 19
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$1",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 20
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$23",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 21
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$26",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 22
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$15",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 23
+    },
+    {
+        "artifact_id": 17,
+        "category": "BANK_ACCOUNT",
+        "original_text": "2521016405",
+        "replacement_text": "[BANK_ACCOUNT]",
+        "rule_id": "bank_account_v1",
+        "suggestion_id": 24
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$100",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 25
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$1",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 26
+    },
+    {
+        "artifact_id": 17,
+        "category": "BANK_ACCOUNT",
+        "original_text": "1411494",
+        "replacement_text": "[BANK_ACCOUNT]",
+        "rule_id": "bank_account_v1",
+        "suggestion_id": 27
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$1",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 28
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$585",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 29
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$2",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 30
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$1",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 31
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$460,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 32
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$1,420,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 33
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$3,690,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 34
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$45,600,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 35
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$227,000,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 36
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$9,600,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 37
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$87,000,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 38
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$20,800,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 39
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$98,800,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 40
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$80,500,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 41
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$10,535,335",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 42
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$2",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 43
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$1",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 44
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$600",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 45
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$20",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 46
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$60",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 47
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$20",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 48
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$60",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 49
+    },
+    {
+        "artifact_id": 17,
+        "category": "BANK_ACCOUNT",
+        "original_text": "1411494",
+        "replacement_text": "[BANK_ACCOUNT]",
+        "rule_id": "bank_account_v1",
+        "suggestion_id": 50
+    },
+    {
+        "artifact_id": 17,
+        "category": "BANK_ACCOUNT",
+        "original_text": "2521016405",
+        "replacement_text": "[BANK_ACCOUNT]",
+        "rule_id": "bank_account_v1",
+        "suggestion_id": 51
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$600",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 52
+    },
+    {
+        "artifact_id": 17,
+        "category": "BANK_ACCOUNT",
+        "original_text": "1411494",
+        "replacement_text": "[BANK_ACCOUNT]",
+        "rule_id": "bank_account_v1",
+        "suggestion_id": 53
+    },
+    {
+        "artifact_id": 17,
+        "category": "CREDIT_CARD",
+        "original_text": "000119317571016405",
+        "replacement_text": "[CREDIT_CARD]",
+        "rule_id": "credit_card_v1",
+        "suggestion_id": 54
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$60",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 55
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$600",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 56
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$158",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 57
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$25",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 58
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$20",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 59
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$60",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 60
+    },
+    {
+        "artifact_id": 17,
+        "category": "BANK_ACCOUNT",
+        "original_text": "1411494",
+        "replacement_text": "[BANK_ACCOUNT]",
+        "rule_id": "bank_account_v1",
+        "suggestion_id": 61
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$70",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 62
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$30",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 63
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$1",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 64
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$70",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 65
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$30",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 66
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$20",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 67
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$25",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 68
+    },
+    {
+        "artifact_id": 17,
+        "category": "BANK_ACCOUNT",
+        "original_text": "1411494",
+        "replacement_text": "[BANK_ACCOUNT]",
+        "rule_id": "bank_account_v1",
+        "suggestion_id": 69
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$158",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 70
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$14,000",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 71
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$5",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 72
+    },
+    {
+        "artifact_id": 17,
+        "category": "BANK_ACCOUNT",
+        "original_text": "2521016405",
+        "replacement_text": "[BANK_ACCOUNT]",
+        "rule_id": "bank_account_v1",
+        "suggestion_id": 73
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$56",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 74
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$50",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 75
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$70",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 76
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$30",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 77
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$1",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 78
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$1",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 79
+    },
+    {
+        "artifact_id": 17,
+        "category": "CURRENCY_AMOUNT",
+        "original_text": "$1",
+        "replacement_text": "[CURRENCY_AMOUNT]",
+        "rule_id": "currency_amount_v1",
+        "suggestion_id": 80
+    }
+]

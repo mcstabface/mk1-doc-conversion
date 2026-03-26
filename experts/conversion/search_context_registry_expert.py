@@ -5,6 +5,32 @@ class SearchContextRegistryExpert:
     def __init__(self, db_path: str):
         self.db_path = db_path
 
+    def _resolve_active_override(self, conn, source_path, source_hash):
+        row = conn.execute(
+            """
+            SELECT
+                o.active_artifact_path,
+                o.active_artifact_hash,
+                o.active_artifact_type
+            FROM artifact_truth_overrides o
+            JOIN source_artifacts s
+                ON s.artifact_id = o.source_artifact_id
+            WHERE
+                s.logical_path = ?
+                AND s.sha256 = ?
+            """,
+            (source_path, source_hash),
+        ).fetchone()
+
+        if not row:
+            return None
+
+        return {
+            "artifact_path": row["active_artifact_path"],
+            "artifact_hash": row["active_artifact_hash"],
+            "artifact_type": row["active_artifact_type"],
+        }
+
     def run(self, payload: dict) -> dict:
         file_inventory = payload["file_inventory"]
         fingerprints = payload["fingerprints"]
@@ -20,6 +46,25 @@ class SearchContextRegistryExpert:
             for source_path in file_inventory:
                 fp = fingerprints.get(source_path, {})
                 source_hash = fp.get("source_hash")
+
+                override = self._resolve_active_override(
+                    conn,
+                    source_path,
+                    source_hash,
+                )
+
+                if override:
+                    plan["skip"].append(
+                        {
+                            "source_path": source_path,
+                            "reason": "redaction_override_active",
+                            "artifact_path": override["artifact_path"],
+                            "artifact_hash": override["artifact_hash"],
+                            "artifact_type": override["artifact_type"],
+                            "run_id": None,
+                        }
+                    )
+                    continue
 
                 rows = conn.execute(
                     """

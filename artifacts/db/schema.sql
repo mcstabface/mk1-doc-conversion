@@ -70,6 +70,67 @@ CREATE TABLE IF NOT EXISTS search_context_registry (
     PRIMARY KEY (source_path, artifact_type)
 );
 
+CREATE TABLE IF NOT EXISTS redacted_artifacts (
+    redacted_artifact_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_artifact_id INTEGER NOT NULL,
+    plan_id INTEGER NOT NULL,
+    approval_id INTEGER NOT NULL,
+    profile TEXT NOT NULL,
+    ruleset_version TEXT NOT NULL,
+    ruleset_hash TEXT NOT NULL,
+    artifact_path TEXT NOT NULL,
+    artifact_hash TEXT NOT NULL,
+    artifact_type TEXT NOT NULL,
+    created_utc INTEGER NOT NULL,
+    FOREIGN KEY(source_artifact_id) REFERENCES source_artifacts(artifact_id)
+);
+
+CREATE TABLE IF NOT EXISTS artifact_truth_overrides (
+    source_artifact_id INTEGER PRIMARY KEY,
+    active_artifact_type TEXT NOT NULL,
+    active_artifact_path TEXT NOT NULL,
+    active_artifact_hash TEXT NOT NULL,
+    redacted_artifact_id INTEGER NOT NULL,
+    created_utc INTEGER NOT NULL,
+    FOREIGN KEY(source_artifact_id) REFERENCES source_artifacts(artifact_id),
+    FOREIGN KEY(redacted_artifact_id) REFERENCES redacted_artifacts(redacted_artifact_id)
+);
+
+CREATE TABLE IF NOT EXISTS redaction_plan_runs (
+    plan_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL,
+    profile TEXT NOT NULL,
+    ruleset_version TEXT NOT NULL,
+    ruleset_hash TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_utc INTEGER NOT NULL,
+    FOREIGN KEY(run_id) REFERENCES runs(run_id)
+);
+
+CREATE TABLE IF NOT EXISTS redaction_plan_suggestions (
+    suggestion_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER NOT NULL,
+    artifact_id INTEGER NOT NULL,
+    category TEXT NOT NULL,
+    original_text TEXT NOT NULL,
+    replacement_text TEXT NOT NULL,
+    rule_id TEXT NOT NULL,
+    created_utc INTEGER NOT NULL,
+    FOREIGN KEY(plan_id) REFERENCES redaction_plan_runs(plan_id),
+    FOREIGN KEY(artifact_id) REFERENCES source_artifacts(artifact_id)
+);
+
+CREATE TABLE IF NOT EXISTS redaction_approvals (
+    approval_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER NOT NULL,
+    approved_utc INTEGER NOT NULL,
+    approval_flags TEXT,
+    FOREIGN KEY(plan_id) REFERENCES redaction_plan_runs(plan_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_truth_override_redacted_id
+    ON artifact_truth_overrides(redacted_artifact_id);
+
 CREATE INDEX IF NOT EXISTS idx_search_context_registry_source_hash
     ON search_context_registry(source_hash);
 
