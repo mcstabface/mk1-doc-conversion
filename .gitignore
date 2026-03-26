@@ -1,4 +1,4 @@
-32*/__pycache__/
+*/__pycache__/
 *.pyc
 artifacts/
 *.db
