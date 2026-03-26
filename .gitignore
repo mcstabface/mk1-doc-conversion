@@ -11,6 +11,7 @@ artifacts/
 artifacts/db/*.db
 artifacts/pdfs*/
 artifacts/temp/*
+docs/*
 
 test_source/.~lock*
 .directory
