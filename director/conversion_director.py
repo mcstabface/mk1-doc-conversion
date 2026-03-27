@@ -62,7 +62,8 @@ class ConversionDirector:
         for artifact in inventory:
             expanded.append(artifact)
             if artifact["source_type"] == "zip":
-                members = expand_zip_artifacts(artifact)
+                extract_root = self.pdf_output.parent / "staging"
+                members = expand_zip_artifacts(artifact, extract_root=extract_root)
 
                 for m in members:
                     if m.get("expansion_status") == "FAILED":

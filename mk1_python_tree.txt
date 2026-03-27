@@ -1,0 +1,162 @@
+.
+├── artifacts
+│   ├── corpus_stats
+│   ├── db
+│   ├── embeddings
+│   ├── embeddings_backup_20260315_093753
+│   ├── enron_fix_test
+│   │   ├── embeddings_smoke
+│   │   ├── manifests
+│   │   ├── pdfs
+│   │   ├── search_context
+│   │   └── search_context_chunks
+│   ├── enron_full
+│   │   ├── embeddings
+│   │   ├── embeddings_smoke
+│   │   ├── manifests
+│   │   ├── pdfs
+│   │   ├── query_answer
+│   │   ├── query_context
+│   │   ├── query_diagnostics
+│   │   ├── search_context
+│   │   └── search_context_chunks
+│   ├── enron_full_v2
+│   │   ├── embeddings
+│   │   ├── embeddings_backup_20260315_094230
+│   │   ├── embeddings_backup_20260315_140705
+│   │   ├── lexical_index_sharded
+│   │   ├── manifests
+│   │   ├── pdfs
+│   │   ├── query_answer
+│   │   ├── query_context
+│   │   ├── query_diagnostics
+│   │   ├── search_context
+│   │   ├── search_context_chunks
+│   │   └── search_context_chunks_backup_20260315_140705
+│   ├── enron_parallel2
+│   │   ├── manifests
+│   │   ├── pdfs
+│   │   ├── search_context
+│   │   └── search_context_chunks
+│   ├── enron_test
+│   │   ├── manifests
+│   │   ├── pdfs
+│   │   ├── search_context
+│   │   └── search_context_chunks
+│   ├── manifests
+│   ├── pdfs
+│   ├── pdfs_alt
+│   ├── query_answer
+│   ├── query_context
+│   ├── query_diagnostics
+│   ├── query_eval
+│   ├── search_context
+│   ├── search_context_chunks
+│   ├── temp
+│   ├── test_source_mid
+│   │   ├── benchmarks
+│   │   ├── corpus_stats
+│   │   ├── embeddings
+│   │   ├── manifests
+│   │   ├── pdfs
+│   │   ├── query_answer
+│   │   ├── query_context
+│   │   ├── query_diagnostics
+│   │   ├── query_eval
+│   │   ├── query_eval_compare
+│   │   ├── search_context
+│   │   ├── search_context_chunks
+│   │   └── test.py
+│   └── vector_index
+├── build
+│   └── mk1-doc-conversion
+│       └── localpycs
+├── configs
+├── director
+│   └── conversion_director.py
+├── dist
+├── docs
+│   └── session_artifacts
+├── experts
+│   ├── base_expert.py
+│   ├── containers
+│   │   └── zip_expand_expert.py
+│   ├── conversion
+│   │   ├── conversion_registry_expert.py
+│   │   ├── doc_to_search_context_expert.py
+│   │   ├── docx_to_pdf_expert.py
+│   │   ├── email_to_search_context_expert.py
+│   │   ├── fingerprint_expert.py
+│   │   ├── __init__.py
+│   │   └── search_context_registry_expert.py
+│   ├── delta
+│   │   └── delta_expert.py
+│   ├── inventory
+│   │   └── inventory_expert.py
+│   ├── llm_search
+│   │   ├── embedding_chunk_expert.py
+│   │   ├── hybrid_fusion_expert.py
+│   │   ├── __init__.py
+│   │   ├── mmr_diversity_ranker.py
+│   │   ├── query_embedding_expert.py
+│   │   ├── score_gap_filter.py
+│   │   ├── search_context_answer_expert.py
+│   │   ├── search_context_assemble_expert.py
+│   │   ├── search_context_bm25_rank_expert.py
+│   │   ├── search_context_chunk_expert.py
+│   │   ├── search_context_query_expert.py
+│   │   ├── search_context_rank_expert.py
+│   │   ├── tokenization.py
+│   │   └── vector_search_expert.py
+│   ├── query
+│   │   ├── artifact_query.py
+│   │   ├── convertible_query.py
+│   │   ├── query_expansion_expert.py
+│   │   ├── query_rewrite_expert.py
+│   │   ├── query_rewrite_validator.py
+│   │   └── run_query.py
+│   ├── redaction
+│   │   ├── redaction_approval_gate_expert.py
+│   │   ├── redaction_approval_record_expert.py
+│   │   ├── redaction_commit_expert.py
+│   │   ├── redaction_plan_expert.py
+│   │   └── redaction_preview_expert.py
+│   └── storage
+│       ├── conversion_receipt_expert.py
+│       ├── run_manifest_expert.py
+│       ├── sqlite_storage_expert.py
+│       └── storage_expert.py
+├── main.py
+├── mk1_io
+│   └── artifact_writer.py
+├── query_search_context.py
+├── tests
+│   ├── tempo.py
+│   ├── test_pii.py
+│   ├── test_redaction_approval.py
+│   ├── test_redaction_approval_record.py
+│   └── test_redaction_commit.py
+├── tools
+│   ├── build_embeddings.py
+│   ├── build_lexical_index.py
+│   ├── build_lexical_index_sharded.py
+│   ├── build_lexical_index_sqlite.py
+│   ├── build_vector_index.py
+│   ├── compare_query_eval.py
+│   ├── evaluate_queries.py
+│   ├── generate_corpus_stats.py
+│   ├── query_report.py
+│   ├── redaction_commit.py
+│   ├── redaction_lifecycle.py
+│   ├── redaction_preview.py
+│   ├── report_corpus_stats.py
+│   ├── report_embedding_coverage.py
+│   ├── run_query_eval.py
+│   └── test_redaction_plan_smoke.py
+├── ui
+│   ├── demo_app.py
+│   └── demo_backend.py
+└── validation
+    └── artifact_validator.py
+
+91 directories, 69 files

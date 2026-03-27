@@ -2,6 +2,8 @@ from pathlib import Path
 from typing import Dict, List
 import hashlib
 import zipfile
+import os
+import re
 
 
 SUPPORTED_MEMBER_EXTENSIONS = {
@@ -14,8 +16,10 @@ SUPPORTED_MEMBER_EXTENSIONS = {
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
+def _safe_member_name(name: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", name)
 
-def expand_zip_artifacts(zip_artifact: Dict) -> List[Dict]:
+def expand_zip_artifacts(zip_artifact: Dict, extract_root: Path) -> List[Dict]:
     zip_path = Path(zip_artifact["physical_path"])
     results: List[Dict] = []
 
@@ -47,9 +51,21 @@ def expand_zip_artifacts(zip_artifact: Dict) -> List[Dict]:
                 )
                 continue
 
+            zip_key = hashlib.sha256(str(zip_path).encode("utf-8")).hexdigest()[:12]
+            member_key = hashlib.sha256(info.filename.encode("utf-8")).hexdigest()[:12]
+
+            member_stage_dir = extract_root / zip_key
+            member_stage_dir.mkdir(parents=True, exist_ok=True)
+
+            staged_name = f"{Path(info.filename).stem}__{member_key}{ext}"
+            staged_path = member_stage_dir / _safe_member_name(staged_name)
+
+            with open(staged_path, "wb") as f:
+                f.write(member_bytes)
+
             results.append(
                 {
-                    "physical_path": str(zip_path),
+                    "physical_path": str(staged_path),
                     "container_path": str(zip_path),
                     "logical_path": f'{zip_artifact["logical_path"]}::{info.filename}',
                     "source_type": ext.lstrip("."),

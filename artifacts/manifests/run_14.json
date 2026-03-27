@@ -1,10 +1,128 @@
 {
-  "changed_count": 0,
-  "conversions": [],
-  "convertible_count": 0,
-  "expanded_count": 4,
-  "inventory_count": 3,
-  "new_count": 0,
+  "artifact_output": "/home/stabby/Documents/mk1-doc-conversion/artifacts/search_context",
+  "conversions": [
+    {
+      "converter_used": "docx-to-pdf",
+      "logical_path": "AE.CCB.DS140-1.ENH011.Reconnect FA BPA Script v0.9.doc",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/AE.CCB.DS140-1.ENH011.Reconnect FA BPA Script v0.9__a860fcecdf91.pdf",
+      "physical_path": "/home/stabby/Downloads/AP_Corpus/AE.CCB.DS140-1.ENH011.Reconnect FA BPA Script v0.9.doc",
+      "source_hash": "fb07eeda43e0df5ebce8e850bbdd61cca48ce3dce6b435d102003562621e1cc7",
+      "status": "SUCCESS"
+    },
+    {
+      "converter_used": "docx-to-pdf",
+      "logical_path": "AE.CCB.DS140-1.ENH030.New Payment Vendor On-boarding_v0.8.docx",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/AE.CCB.DS140-1.ENH030.New Payment Vendor On-boarding_v0.8__a694f531a14a.pdf",
+      "physical_path": "/home/stabby/Downloads/AP_Corpus/AE.CCB.DS140-1.ENH030.New Payment Vendor On-boarding_v0.8.docx",
+      "source_hash": "aacf42e0ca989ce8a6e3ed33b33f4ad678b330be9f1151adc24e8688d8744ce8",
+      "status": "SUCCESS"
+    },
+    {
+      "converter_used": "docx-to-pdf",
+      "logical_path": "AE.CCB.DS140-1.ENH037.To Do trigger for accounts with multiple Auto Pay v0.2.doc",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/AE.CCB.DS140-1.ENH037.To Do trigger for accounts with multiple Auto Pay v0.2__68475e7fd70f.pdf",
+      "physical_path": "/home/stabby/Downloads/AP_Corpus/AE.CCB.DS140-1.ENH037.To Do trigger for accounts with multiple Auto Pay v0.2.doc",
+      "source_hash": "ad661128ee808a48dd6fc9e2078dbee98c98bb7cc646b95e5ecf2bca5ba353a2",
+      "status": "SUCCESS"
+    },
+    {
+      "converter_used": "docx-to-pdf",
+      "logical_path": "AE.CCB.DS140-1.ENH048.Letter Display Algorithm.doc",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/AE.CCB.DS140-1.ENH048.Letter Display Algorithm__45767003fa30.pdf",
+      "physical_path": "/home/stabby/Downloads/AP_Corpus/AE.CCB.DS140-1.ENH048.Letter Display Algorithm.doc",
+      "source_hash": "7a5826eb76bd2e5bf6e125e5b64d9f7b1c3c357e4fe349edcb0551e0ddf722d3",
+      "status": "SUCCESS"
+    },
+    {
+      "converter_used": "docx-to-pdf",
+      "logical_path": "AE.CCB.PRT.ENH091.Changes after DSS T go-live v0.1.docx",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/AE.CCB.PRT.ENH091.Changes after DSS T go-live v0.1__72c155c47d61.pdf",
+      "physical_path": "/home/stabby/Downloads/AP_Corpus/AE.CCB.PRT.ENH091.Changes after DSS T go-live v0.1.docx",
+      "source_hash": "1dc044a5b6b30bc0ba1bca6045d2b3fc340ed971175a111ae0de30e6783d0cba",
+      "status": "SUCCESS"
+    },
+    {
+      "converter_used": "docx-to-pdf",
+      "logical_path": "CoA BI-04 Custom Bill Print Extract EXD v2.8.doc",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/CoA BI-04 Custom Bill Print Extract EXD v2.8__cc91c22ba40d.pdf",
+      "physical_path": "/home/stabby/Downloads/AP_Corpus/CoA BI-04 Custom Bill Print Extract EXD v2.8.doc",
+      "source_hash": "3b32b96a97cb30a14b98ec36b2a6b7cd2c2e56838e84ddeb3b7b1820f9108941",
+      "status": "SUCCESS"
+    },
+    {
+      "converter_used": "docx-to-pdf",
+      "logical_path": "CoA BI-10 Wastewater Bill Messages EXD v2.1.doc",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/CoA BI-10 Wastewater Bill Messages EXD v2.1__655955c59a77.pdf",
+      "physical_path": "/home/stabby/Downloads/AP_Corpus/CoA BI-10 Wastewater Bill Messages EXD v2.1.doc",
+      "source_hash": "9d71233442c754e62805381d4d6b84ca4a7613f37f38fbe65a07a6436ed299ae",
+      "status": "SUCCESS"
+    },
+    {
+      "converter_used": "docx-to-pdf",
+      "logical_path": "CoA CI-04 Letter Extract Algorithms EXD v4.9.docx",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/CoA CI-04 Letter Extract Algorithms EXD v4.9__900d10976f84.pdf",
+      "physical_path": "/home/stabby/Downloads/AP_Corpus/CoA CI-04 Letter Extract Algorithms EXD v4.9.docx",
+      "source_hash": "69967b3220997cfd39ef0fb55d1b89fe4a49f177f8369cba1ac2d7ddc0ebb956",
+      "status": "SUCCESS"
+    },
+    {
+      "converter_used": "docx-to-pdf",
+      "logical_path": "CoA RT-03  Multi Item EXD v1.4.doc",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/CoA RT-03  Multi Item EXD v1.4__b6b1b1ccd984.pdf",
+      "physical_path": "/home/stabby/Downloads/AP_Corpus/CoA RT-03  Multi Item EXD v1.4.doc",
+      "source_hash": "636d67fa50477d41cd4b8cade0a037e5b50f3d64e7dcb86985fc081e1af4389d",
+      "status": "SUCCESS"
+    },
+    {
+      "converter_used": "docx-to-pdf",
+      "logical_path": "EHN045/CoA BI-04 Custom Bill Print Extract EXD v2.7.doc",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/CoA BI-04 Custom Bill Print Extract EXD v2.7__af5b886fe780.pdf",
+      "physical_path": "/home/stabby/Downloads/AP_Corpus/EHN045/CoA BI-04 Custom Bill Print Extract EXD v2.7.doc",
+      "source_hash": "382862c2c0ad79b4a0702171a3ab30ef4c15703e207010ee7f621ce9b62768c7",
+      "status": "SUCCESS"
+    },
+    {
+      "converter_used": "docx-to-pdf",
+      "logical_path": "EHN045/SolarSharedSolarBillPresentmentChangesV03_Final.docx",
+      "output_pdf_path": "/home/stabby/Documents/mk1-doc-conversion/artifacts/pdfs/SolarSharedSolarBillPresentmentChangesV03_Final__643d111ecb72.pdf",
+      "physical_path": "/home/stabby/Downloads/AP_Corpus/EHN045/SolarSharedSolarBillPresentmentChangesV03_Final.docx",
+      "source_hash": "adb9404ef89d1c2320489ded8d1b50df3e06d38c6e66635a4d527c04ffa0b158",
+      "status": "SUCCESS"
+    }
+  ],
+  "convert_count": 11,
+  "converted_count": 11,
+  "converted_paths": [
+    "AE.CCB.DS140-1.ENH011.Reconnect FA BPA Script v0.9.doc",
+    "AE.CCB.DS140-1.ENH030.New Payment Vendor On-boarding_v0.8.docx",
+    "AE.CCB.DS140-1.ENH037.To Do trigger for accounts with multiple Auto Pay v0.2.doc",
+    "AE.CCB.DS140-1.ENH048.Letter Display Algorithm.doc",
+    "AE.CCB.PRT.ENH091.Changes after DSS T go-live v0.1.docx",
+    "CoA BI-04 Custom Bill Print Extract EXD v2.8.doc",
+    "CoA BI-10 Wastewater Bill Messages EXD v2.1.doc",
+    "CoA CI-04 Letter Extract Algorithms EXD v4.9.docx",
+    "CoA RT-03  Multi Item EXD v1.4.doc",
+    "EHN045/CoA BI-04 Custom Bill Print Extract EXD v2.7.doc",
+    "EHN045/SolarSharedSolarBillPresentmentChangesV03_Final.docx"
+  ],
+  "expanded_count": 635,
+  "expansion_failures": [
+    {
+      "container_path": "/home/stabby/Downloads/AP_Corpus/AE.CCB.DS140-1.ENH087E.GIS-CCB Integration.zip",
+      "logical_path": "AE.CCB.DS140-1.ENH087E.GIS-CCB Integration.zip::AE.CCB.DS140-1.ENH087E.GIS-CCB Integration v0.1.docx",
+      "reason": "Bad CRC-32 for file 'AE.CCB.DS140-1.ENH087E.GIS-CCB Integration v0.1.docx'"
+    }
+  ],
+  "expansion_failures_count": 1,
+  "failed": [],
+  "failed_count": 1,
+  "inventory_count": 253,
+  "planned_convert_count": 11,
+  "planned_skip_count": 0,
+  "planned_total_count": 11,
   "run_id": 14,
-  "unchanged_count": 4
+  "skip_count": 0,
+  "skipped": [],
+  "source_root": "/home/stabby/Downloads/AP_Corpus",
+  "status": "FAILED"
 }
