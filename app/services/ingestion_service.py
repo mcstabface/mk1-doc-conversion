@@ -52,6 +52,8 @@ class IngestionService:
         manifest_dir.mkdir(parents=True, exist_ok=True)
         request.db_path.parent.mkdir(parents=True, exist_ok=True)
 
+        self._ensure_db(request.db_path)
+
         director = ConversionDirector(
             db_path=str(request.db_path),
             pdf_output=pdf_output,
