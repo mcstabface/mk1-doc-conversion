@@ -17,7 +17,7 @@ class RedactionCommitExpert(BaseExpert):
 
     def run(self, payload: Dict[str, Any]) -> Dict[str, Any]:
 
-         required_fields = [
+        required_fields = [
             "source_artifact_id",
             "profile",
             "ruleset_version",
@@ -36,7 +36,7 @@ class RedactionCommitExpert(BaseExpert):
             raise ValueError(
                 f"Missing required payload fields: {missing}"
             )
-        
+
         source_artifact_id = payload["source_artifact_id"]
         profile = payload["profile"]
         ruleset_version = payload["ruleset_version"]
@@ -197,7 +197,7 @@ class RedactionCommitExpert(BaseExpert):
                     now_utc,
                 ),
             )
-            
+
             conn.commit()
 
         except Exception:
@@ -215,7 +215,7 @@ class RedactionCommitExpert(BaseExpert):
                 "artifact_hash": artifact_hash,
             }
         }
-    
+
     def _build_redacted_document(
         self,
         conn,
@@ -230,8 +230,6 @@ class RedactionCommitExpert(BaseExpert):
     ) -> dict:
 
         cursor = conn.cursor()
-
-        # Resolve active truth artifact
 
         source_row = cursor.execute(
             """
