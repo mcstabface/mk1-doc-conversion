@@ -546,24 +546,24 @@ class ConversionDirector:
 
             failures = [c for c in conversions if c["status"] == "FAILED"]
             total_failures = len(failures) + len(expansion_failures)
+            completed_success_count = len([c for c in conversions if c["status"] == "SUCCESS"])
+            run_status = "SUCCESS" if total_failures == 0 else "FAILED"
 
             finalize_run(
                 db_path=self.db_path,
                 run_id=run_id,
-                files_converted=len([c for c in conversions if c["status"] == "SUCCESS"]),
+                files_converted=completed_success_count,
                 files_failed=total_failures,
-                status="SUCCESS" if total_failures == 0 else "FAILED",
+                status=run_status,
                 notes=(
                     f"artifact_mode=search_context "
                     f"planned_convert={planned_convert_count} "
                     f"planned_skip={planned_skip_count} "
-                    f"completed_success={len([c for c in conversions if c['status'] == 'SUCCESS'])} "
+                    f"completed_success={completed_success_count} "
                     f"completed_failed={len(failures)} "
                     f"expansion_failures={len(expansion_failures)}"
                 ),
             )
-
-            total_failures = len(failures) + len(expansion_failures)
 
             skipped = [
                 {
@@ -581,7 +581,7 @@ class ConversionDirector:
 
             result = {
                 "run_id": run_id,
-                "status": "FAILED",
+                "status": run_status,
                 "failed_count": total_failures,
                 "expansion_failures_count": len(expansion_failures),
                 "source_root": str(source_root),
