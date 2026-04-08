@@ -45,9 +45,33 @@ def render(config: AppConfig) -> None:
         st.info("No source artifacts found for this run.")
         return
 
+    eligible_artifacts = [
+        a for a in artifacts
+        if a.get("active_truth_artifact_path")
+    ]
+
+    if not eligible_artifacts:
+        st.warning(
+            "This run has source artifacts, but none currently resolve to an active "
+            "search_context_document artifact for redaction."
+        )
+
+        st.markdown("### Source artifacts in this run")
+        st.json(
+            [
+                {
+                    "artifact_id": a.get("artifact_id"),
+                    "logical_path": a.get("logical_path"),
+                    "source_type": a.get("source_type"),
+                }
+                for a in artifacts[:50]
+            ]
+        )
+        return
+
     artifact_options = {
         f"{a['artifact_id']} | {a['logical_path']}": a
-        for a in artifacts
+        for a in eligible_artifacts
     }
     selected_artifact_labels = st.multiselect(
         "Select source artifacts",
