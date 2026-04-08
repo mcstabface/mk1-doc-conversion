@@ -5,7 +5,7 @@ import time
 from typing import Dict, Any
 
 from experts.base_expert import BaseExpert
-from experts.redaction_commit_expert import RedactionCommitExpert
+from experts.redaction.redaction_commit_expert import RedactionCommitExpert
 
 
 class RedactionPreviewExpert(BaseExpert):
@@ -50,8 +50,6 @@ class RedactionPreviewExpert(BaseExpert):
 
             cursor = conn.cursor()
 
-            # Verify approval exists and belongs to plan
-
             approval_row = cursor.execute(
                 """
                 SELECT approval_id, plan_id
@@ -71,8 +69,6 @@ class RedactionPreviewExpert(BaseExpert):
                     f"Approval {approval_id} does not belong to plan_id={plan_id}."
                 )
 
-            # Verify plan state
-
             approval_exists = cursor.execute(
                 """
                 SELECT plan_id
@@ -87,8 +83,6 @@ class RedactionPreviewExpert(BaseExpert):
                 raise RuntimeError(
                     "Preview blocked: plan approval not verified."
                 )
-
-            # Verify source belongs to plan
 
             planned_source = cursor.execute(
                 """
@@ -105,8 +99,6 @@ class RedactionPreviewExpert(BaseExpert):
                 raise RuntimeError(
                     f"Source artifact {source_artifact_id} is not part of plan_id={plan_id}."
                 )
-
-            # Reuse commit builder
 
             commit_expert = RedactionCommitExpert(self.db_path)
 

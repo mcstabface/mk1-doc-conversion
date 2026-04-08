@@ -31,6 +31,15 @@ def render(config: AppConfig) -> None:
     selected_run = run_options[selected_run_label]
     run_id = int(selected_run["run_id"])
 
+    if "redaction_selected_run_id" not in st.session_state:
+        st.session_state["redaction_selected_run_id"] = run_id
+    elif st.session_state["redaction_selected_run_id"] != run_id:
+        st.session_state["redaction_selected_run_id"] = run_id
+        st.session_state["redaction_plan_summary"] = None
+        st.session_state["redaction_approval_summary"] = None
+        st.session_state["redaction_preview_summary"] = None
+        st.session_state["redaction_commit_summary"] = None
+
     artifacts = service.list_source_artifacts_for_run(run_id)
     if not artifacts:
         st.info("No source artifacts found for this run.")
