@@ -19,7 +19,7 @@ def render(config: AppConfig) -> None:
 
     service = IngestionService()
 
-    if st.button("Run ingestion", use_container_width=True):
+    if st.button("Run ingestion", width="stretch"):
         request = IngestionRunRequest(
             source_root=Path(source_root).resolve(),
             artifact_root=Path(artifact_root).resolve(),
@@ -70,7 +70,7 @@ def render(config: AppConfig) -> None:
                         }
                         for item in skipped
                     ],
-                    use_container_width=True,
+                    width="stretch",
                 )
             else:
                 st.write("No skipped items.")
@@ -85,7 +85,7 @@ def render(config: AppConfig) -> None:
                         }
                         for item in failures
                     ],
-                    use_container_width=True,
+                    width="stretch",
                 )
             else:
                 st.write("No failed items.")
@@ -93,7 +93,7 @@ def render(config: AppConfig) -> None:
             st.markdown("### Recent runs")
             recent_runs = service.list_recent_runs(Path(db_path).resolve(), limit=10)
             if recent_runs:
-                st.dataframe(recent_runs, use_container_width=True)
+                st.dataframe(recent_runs, width="stretch")
             else:
                 st.write("No recent runs found.")
 

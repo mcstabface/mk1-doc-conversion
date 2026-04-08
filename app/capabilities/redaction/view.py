@@ -103,7 +103,7 @@ def render(config: AppConfig) -> None:
     if "redaction_commit_summary" not in st.session_state:
         st.session_state["redaction_commit_summary"] = None
 
-    if st.button("Create plan", use_container_width=True):
+    if st.button("Create plan", width="stretch"):
         if not selected_artifact_labels:
             st.error("Select at least one source artifact.")
         else:
@@ -132,7 +132,7 @@ def render(config: AppConfig) -> None:
             value=False,
         )
 
-        if st.button("Record approval", use_container_width=True):
+        if st.button("Record approval", width="stretch"):
             if not approval_confirm:
                 st.error("Approval confirmation is required.")
             else:
@@ -159,7 +159,7 @@ def render(config: AppConfig) -> None:
         if single_artifact_label:
             source_artifact_id = int(artifact_options[single_artifact_label]["artifact_id"])
 
-            if st.button("Generate preview", use_container_width=True):
+            if st.button("Generate preview", width="stretch"):
                 preview = service.get_preview(
                     RedactionPreviewRequest(
                         source_artifact_id=source_artifact_id,
@@ -204,7 +204,7 @@ def render(config: AppConfig) -> None:
                     value=str(default_output),
                 )
 
-                if st.button("Commit redaction", use_container_width=True):
+                if st.button("Commit redaction", width="stretch"):
                     commit = service.commit(
                         RedactionCommitRequest(
                             source_artifact_id=source_artifact_id,

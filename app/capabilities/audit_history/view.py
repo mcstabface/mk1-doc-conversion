@@ -17,7 +17,7 @@ def render(config: AppConfig) -> None:
         st.write("No recent runs found.")
         return
 
-    st.dataframe(runs, use_container_width=True)
+    st.dataframe(runs, width="stretch")
 
     run_options = {
         f"run {r['run_id']} | {r.get('status', '')} | {r.get('source_root', '')}": r
@@ -44,7 +44,7 @@ def render(config: AppConfig) -> None:
             }
             for a in artifacts
         ],
-        use_container_width=True,
+        width="stretch",
     )
 
     artifact_options = {
