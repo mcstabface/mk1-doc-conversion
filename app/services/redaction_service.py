@@ -30,9 +30,6 @@ class RedactionService:
         self.preview_expert = RedactionPreviewExpert(str(db_path))
         self.commit_expert = RedactionCommitExpert(str(db_path))
 
-    def list_runs(self, limit: int = 50) -> list[dict]:
-        return self.repo.list_runs(limit=limit)
-
     def list_source_artifacts_for_run(self, run_id: int) -> list[dict]:
         return self.repo.list_redaction_candidate_artifacts_for_run(run_id)
 
