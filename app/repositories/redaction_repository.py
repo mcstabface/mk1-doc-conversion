@@ -63,7 +63,16 @@ class RedactionRepository:
                 JOIN source_artifacts s
                     ON s.first_seen_run_id = r.run_id
                     OR s.last_seen_run_id = r.run_id
-                WHERE r.status IN ('SUCCESS', 'FAILED', 'CONVERSION_RUN_COMPLETE')
+                LEFT JOIN artifact_truth_overrides o
+                    ON o.source_artifact_id = s.artifact_id
+                    AND o.active_artifact_type = 'search_context_document'
+                LEFT JOIN search_context_registry scr
+                    ON scr.source_path = s.physical_path
+                    AND scr.source_hash = s.sha256
+                    AND scr.artifact_type = 'search_context_document'
+                WHERE
+                    r.status IN ('SUCCESS', 'FAILED', 'CONVERSION_RUN_COMPLETE')
+                    AND COALESCE(o.active_artifact_path, scr.artifact_path) IS NOT NULL
                 ORDER BY r.run_id DESC
                 LIMIT ?
                 """,
