@@ -40,10 +40,10 @@ class RedactionRepository:
                     sha256,
                     size_bytes
                 FROM source_artifacts
-                WHERE run_id = ?
+                WHERE first_seen_run_id = ? OR last_seen_run_id = ?
                 ORDER BY logical_path ASC
                 """,
-                (run_id,),
+                (run_id, run_id),
             ).fetchall()
             return [dict(r) for r in rows]
 
@@ -61,7 +61,8 @@ class RedactionRepository:
                     r.notes
                 FROM runs r
                 JOIN source_artifacts s
-                    ON s.run_id = r.run_id
+                    ON s.first_seen_run_id = r.run_id
+                    OR s.last_seen_run_id = r.run_id
                 WHERE r.status IN ('SUCCESS', 'FAILED', 'CONVERSION_RUN_COMPLETE')
                 ORDER BY r.run_id DESC
                 LIMIT ?
@@ -110,10 +111,11 @@ class RedactionRepository:
                     ON scr.source_path = s.physical_path
                     AND scr.source_hash = s.sha256
                     AND scr.artifact_type = 'search_context_document'
-                WHERE s.run_id = ?
-                AND COALESCE(o.active_artifact_path, scr.artifact_path) IS NOT NULL
+                WHERE
+                    (s.first_seen_run_id = ? OR s.last_seen_run_id = ?)
+                    AND COALESCE(o.active_artifact_path, scr.artifact_path) IS NOT NULL
                 ORDER BY s.logical_path ASC
                 """,
-                (run_id,),
+                (run_id, run_id),
             ).fetchall()
             return [dict(r) for r in rows]
