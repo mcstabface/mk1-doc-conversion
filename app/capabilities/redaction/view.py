@@ -55,6 +55,12 @@ def render(config: AppConfig) -> None:
             "This run has source artifacts, but none currently resolve to an active "
             "search_context_document artifact for redaction."
         )
+        st.info(
+            "PII redaction operates on search_context_document truth artifacts, not on "
+            "raw source files alone. This usually means the selected run was not ingested "
+            "into context artifacts, or no active truth artifact is currently registered "
+            "for these sources."
+        )
 
         st.markdown("### Source artifacts in this run")
         st.json(
@@ -66,6 +72,12 @@ def render(config: AppConfig) -> None:
                 }
                 for a in artifacts[:50]
             ]
+        )
+
+        st.markdown("### Next step")
+        st.write(
+            "Run deterministic ingestion in `context` mode for this corpus, then return "
+            "to PII Redaction and select the resulting run."
         )
         return
 
