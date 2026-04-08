@@ -31,7 +31,11 @@ class RedactionService:
         self.commit_expert = RedactionCommitExpert(str(db_path))
 
     def list_source_artifacts_for_run(self, run_id: int) -> list[dict]:
-        return self.repo.list_redaction_candidate_artifacts_for_run(run_id)
+        candidate_artifacts = self.repo.list_redaction_candidate_artifacts_for_run(run_id)
+        if candidate_artifacts:
+            return candidate_artifacts
+
+        return self.repo.list_source_artifacts_for_run(run_id)
 
     def create_plan(self, request: RedactionPlanRequest) -> RedactionPlanSummary:
         result = self.plan_expert.run(
