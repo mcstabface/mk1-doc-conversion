@@ -1,12 +1,56 @@
 from __future__ import annotations
 
+import json
 import sqlite3
+from pathlib import Path
 from typing import Any
 
 
 class RedactionRepository:
     def __init__(self, db_path: str) -> None:
         self.db_path = db_path
+
+    def _resolve_search_context_artifact_path_from_disk(
+        self,
+        *,
+        physical_path: str,
+        source_hash: str,
+    ) -> str | None:
+        search_context_dir = Path(self.db_path).resolve().parent.parent / "search_context"
+        if not search_context_dir.exists():
+            return None
+
+        exact_match: str | None = None
+        path_match: str | None = None
+
+        for artifact_path in sorted(search_context_dir.glob("*.json")):
+            try:
+                with open(artifact_path, "r", encoding="utf-8") as f:
+                    artifact = json.load(f)
+            except Exception:
+                continue
+
+            if artifact.get("artifact_type") != "search_context_document":
+                continue
+
+            artifact_source_path = (
+                artifact.get("source_path")
+                or artifact.get("source", {}).get("source_path")
+            )
+            artifact_source_hash = (
+                artifact.get("document_hash")
+                or artifact.get("source_hash")
+                or artifact.get("source", {}).get("source_hash")
+            )
+
+            if artifact_source_path == physical_path and artifact_source_hash == source_hash:
+                exact_match = str(artifact_path)
+                break
+
+            if artifact_source_path == physical_path and path_match is None:
+                path_match = str(artifact_path)
+
+        return exact_match or path_match
 
     def list_runs(self, limit: int = 50) -> list[dict[str, Any]]:
         with sqlite3.connect(self.db_path) as conn:
@@ -104,44 +148,46 @@ class RedactionRepository:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
                 """
-                SELECT
-                    candidates.artifact_id,
-                    candidates.logical_path,
-                    candidates.physical_path,
-                    candidates.source_type,
-                    candidates.sha256,
-                    candidates.size_bytes,
-                    candidates.active_truth_artifact_path
-                FROM (
-                    SELECT DISTINCT
-                        s.artifact_id,
-                        s.logical_path,
-                        s.physical_path,
-                        s.source_type,
-                        s.sha256,
-                        s.size_bytes,
-                        COALESCE(
-                            o.active_artifact_path,
-                            scr_exact.artifact_path,
-                            scr_path.artifact_path
-                        ) AS active_truth_artifact_path
-                    FROM source_artifacts s
-                    LEFT JOIN artifact_truth_overrides o
-                        ON o.source_artifact_id = s.artifact_id
-                        AND o.active_artifact_type = 'search_context_document'
-                    LEFT JOIN search_context_registry scr_exact
-                        ON scr_exact.source_path = s.physical_path
-                        AND scr_exact.source_hash = s.sha256
-                        AND scr_exact.artifact_type = 'search_context_document'
-                    LEFT JOIN search_context_registry scr_path
-                        ON scr_path.source_path = s.physical_path
-                        AND scr_path.artifact_type = 'search_context_document'
-                    WHERE
-                        (s.first_seen_run_id = ? OR s.last_seen_run_id = ?)
-                ) candidates
-                WHERE candidates.active_truth_artifact_path IS NOT NULL
-                ORDER BY candidates.logical_path ASC
+                SELECT DISTINCT
+                    s.artifact_id,
+                    s.logical_path,
+                    s.physical_path,
+                    s.source_type,
+                    s.sha256,
+                    s.size_bytes,
+                    COALESCE(
+                        o.active_artifact_path,
+                        scr_exact.artifact_path,
+                        scr_path.artifact_path
+                    ) AS active_truth_artifact_path
+                FROM source_artifacts s
+                LEFT JOIN artifact_truth_overrides o
+                    ON o.source_artifact_id = s.artifact_id
+                    AND o.active_artifact_type = 'search_context_document'
+                LEFT JOIN search_context_registry scr_exact
+                    ON scr_exact.source_path = s.physical_path
+                    AND scr_exact.source_hash = s.sha256
+                    AND scr_exact.artifact_type = 'search_context_document'
+                LEFT JOIN search_context_registry scr_path
+                    ON scr_path.source_path = s.physical_path
+                    AND scr_path.artifact_type = 'search_context_document'
+                WHERE
+                    (s.first_seen_run_id = ? OR s.last_seen_run_id = ?)
+                ORDER BY s.logical_path ASC
                 """,
                 (run_id, run_id),
             ).fetchall()
-            return [dict(r) for r in rows]
+
+        candidates: list[dict[str, Any]] = []
+        for row in rows:
+            item = dict(row)
+            if not item.get("active_truth_artifact_path"):
+                item["active_truth_artifact_path"] = self._resolve_search_context_artifact_path_from_disk(
+                    physical_path=item["physical_path"],
+                    source_hash=item["sha256"],
+                )
+
+            if item.get("active_truth_artifact_path"):
+                candidates.append(item)
+
+        return candidates

@@ -326,21 +326,6 @@ class RedactionPlanExpert(BaseExpert):
             FROM search_context_registry
             WHERE
                 source_path = ?
-                AND source_hash = ?
-                AND artifact_type = 'search_context_document'
-            """,
-            (physical_path, source_hash),
-        ).fetchone()
-
-        if registry_row:
-            return registry_row["artifact_path"]
-
-        registry_row = conn.execute(
-            """
-            SELECT artifact_path
-            FROM search_context_registry
-            WHERE
-                source_path = ?
                 AND artifact_type = 'search_context_document'
             """,
             (physical_path,),
@@ -349,7 +334,56 @@ class RedactionPlanExpert(BaseExpert):
         if registry_row:
             return registry_row["artifact_path"]
 
+        disk_artifact_path = self._resolve_search_context_artifact_path_from_disk(
+            physical_path=physical_path,
+            source_hash=source_hash,
+        )
+        if disk_artifact_path:
+            return disk_artifact_path
+
         return None
+
+    def _resolve_search_context_artifact_path_from_disk(
+        self,
+        *,
+        physical_path: str,
+        source_hash: str,
+    ) -> Optional[str]:
+        search_context_dir = Path(self.db_path).resolve().parent.parent / "search_context"
+        if not search_context_dir.exists():
+            return None
+
+        exact_match: Optional[str] = None
+        path_match: Optional[str] = None
+
+        for artifact_path in sorted(search_context_dir.glob("*.json")):
+            try:
+                with open(artifact_path, "r", encoding="utf-8") as f:
+                    artifact = json.load(f)
+            except Exception:
+                continue
+
+            if artifact.get("artifact_type") != "search_context_document":
+                continue
+
+            artifact_source_path = (
+                artifact.get("source_path")
+                or artifact.get("source", {}).get("source_path")
+            )
+            artifact_source_hash = (
+                artifact.get("document_hash")
+                or artifact.get("source_hash")
+                or artifact.get("source", {}).get("source_hash")
+            )
+
+            if artifact_source_path == physical_path and artifact_source_hash == source_hash:
+                exact_match = str(artifact_path)
+                break
+
+            if artifact_source_path == physical_path and path_match is None:
+                path_match = str(artifact_path)
+
+        return exact_match or path_match
 
     def _load_text_from_artifact(self, artifact_path: str) -> str:
         path = Path(artifact_path).resolve()

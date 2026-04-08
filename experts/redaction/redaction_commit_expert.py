@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 import time
 from pathlib import Path
@@ -216,6 +217,100 @@ class RedactionCommitExpert(BaseExpert):
             }
         }
 
+    def _resolve_search_context_artifact_path_from_disk(
+        self,
+        *,
+        physical_path: str,
+        source_hash: str,
+    ) -> str | None:
+        search_context_dir = Path(self.db_path).resolve().parent.parent / "search_context"
+        if not search_context_dir.exists():
+            return None
+
+        exact_match: str | None = None
+        path_match: str | None = None
+
+        for artifact_path in sorted(search_context_dir.glob("*.json")):
+            try:
+                with open(artifact_path, "r", encoding="utf-8") as f:
+                    artifact = json.load(f)
+            except Exception:
+                continue
+
+            if artifact.get("artifact_type") != "search_context_document":
+                continue
+
+            artifact_source_path = (
+                artifact.get("source_path")
+                or artifact.get("source", {}).get("source_path")
+            )
+            artifact_source_hash = (
+                artifact.get("document_hash")
+                or artifact.get("source_hash")
+                or artifact.get("source", {}).get("source_hash")
+            )
+
+            if artifact_source_path == physical_path and artifact_source_hash == source_hash:
+                exact_match = str(artifact_path)
+                break        if override_row:
+            artifact_path = override_row["active_artifact_path"]
+        else:
+            registry_row = cursor.execute(
+                """
+                SELECT artifact_path
+                FROM search_context_registry
+                WHERE
+                    source_path = ?
+                    AND source_hash = ?
+                    AND artifact_type = 'search_context_document'
+                """,
+                (
+                    source_row["physical_path"],
+                    source_row["sha256"],
+                ),
+            ).fetchone()
+
+            registry_row = cursor.execute(
+                """
+                SELECT artifact_path
+                FROM search_context_registry
+                WHERE
+                    source_path = ?
+                    AND source_hash = ?
+                    AND artifact_type = 'search_context_document'
+                """,
+                (
+                    source_row["physical_path"],
+                    source_row["sha256"],
+                ),
+            ).fetchone()
+
+            if not registry_row:
+                registry_row = cursor.execute(
+                    """
+                    SELECT artifact_path
+                    FROM search_context_registry
+                    WHERE
+                        source_path = ?
+                        AND artifact_type = 'search_context_document'
+                    """,
+                    (
+                        source_row["physical_path"],
+                    ),
+                ).fetchone()
+
+            if not registry_row:
+                raise RuntimeError(
+                    "No active search_context_document artifact found."
+                )
+
+            artifact_path = registry_row["artifact_path"]
+
+            if artifact_source_path == physical_path and path_match is None:
+                path_match = str(artifact_path)
+
+        return exact_match or path_match
+
     def _build_redacted_document(
         self,
         conn,
@@ -275,21 +370,6 @@ class RedactionCommitExpert(BaseExpert):
                 ),
             ).fetchone()
 
-            registry_row = cursor.execute(
-                """
-                SELECT artifact_path
-                FROM search_context_registry
-                WHERE
-                    source_path = ?
-                    AND source_hash = ?
-                    AND artifact_type = 'search_context_document'
-                """,
-                (
-                    source_row["physical_path"],
-                    source_row["sha256"],
-                ),
-            ).fetchone()
-
             if not registry_row:
                 registry_row = cursor.execute(
                     """
@@ -304,14 +384,19 @@ class RedactionCommitExpert(BaseExpert):
                     ),
                 ).fetchone()
 
-            if not registry_row:
+            if registry_row:
+                artifact_path = registry_row["artifact_path"]
+            else:
+                artifact_path = self._resolve_search_context_artifact_path_from_disk(
+                    physical_path=source_row["physical_path"],
+                    source_hash=source_row["sha256"],
+                )
+
+            if not artifact_path:
                 raise RuntimeError(
                     "No active search_context_document artifact found."
                 )
 
-            artifact_path = registry_row["artifact_path"]
-
-        import json
         from pathlib import Path
 
         path = Path(artifact_path).resolve()
