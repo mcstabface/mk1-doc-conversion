@@ -132,7 +132,22 @@ def render(config: AppConfig) -> None:
             if preview is not None:
                 st.markdown("### Preview")
                 st.write(preview.status)
-                st.json(preview.document)
+
+                preview_doc = preview.document
+                redaction_meta = preview_doc.get("redaction", {})
+                text_content = preview_doc.get("text_content", "")
+
+                st.markdown("#### Redaction metadata")
+                st.json(redaction_meta)
+
+                st.markdown("#### Preview text")
+                st.text_area(
+                    "Preview text",
+                    value=text_content[:2000],
+                    height=300,
+                    disabled=True,
+                    label_visibility="collapsed",
+                )
 
                 default_output = service.build_default_output_path(
                     source_artifact_id=source_artifact_id,
