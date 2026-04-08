@@ -326,6 +326,21 @@ class RedactionPlanExpert(BaseExpert):
             FROM search_context_registry
             WHERE
                 source_path = ?
+                AND source_hash = ?
+                AND artifact_type = 'search_context_document'
+            """,
+            (physical_path, source_hash),
+        ).fetchone()
+
+        if registry_row:
+            return registry_row["artifact_path"]
+
+        registry_row = conn.execute(
+            """
+            SELECT artifact_path
+            FROM search_context_registry
+            WHERE
+                source_path = ?
                 AND artifact_type = 'search_context_document'
             """,
             (physical_path,),

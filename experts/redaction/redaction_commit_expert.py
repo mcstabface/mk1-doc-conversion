@@ -275,6 +275,21 @@ class RedactionCommitExpert(BaseExpert):
                 ),
             ).fetchone()
 
+            registry_row = cursor.execute(
+                """
+                SELECT artifact_path
+                FROM search_context_registry
+                WHERE
+                    source_path = ?
+                    AND source_hash = ?
+                    AND artifact_type = 'search_context_document'
+                """,
+                (
+                    source_row["physical_path"],
+                    source_row["sha256"],
+                ),
+            ).fetchone()
+
             if not registry_row:
                 registry_row = cursor.execute(
                     """
