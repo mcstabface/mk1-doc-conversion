@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import streamlit as st
 from pathlib import Path
+
+import streamlit as st
 
 from app.config import AppConfig
 from app.contracts.ingestion import IngestionRunRequest
@@ -29,19 +30,72 @@ def render(config: AppConfig) -> None:
         try:
             result = service.run_ingestion(request)
             summary = result.summary
+            raw = result.raw_result
 
             st.success(f"Run complete: {summary.run_id}")
-            st.write(summary)
 
-            raw = result.raw_result
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Run ID", str(summary.run_id))
+            c2.metric("Status", summary.status)
+            c3.metric("Mode", mode)
+            c4.metric("Converted", str(summary.converted_count))
+
+            c5, c6, c7, c8 = st.columns(4)
+            c5.metric("Inventory", str(summary.inventory_count))
+            c6.metric("Expanded", str(summary.expanded_count))
+            c7.metric("Planned Convert", str(summary.planned_convert_count))
+            c8.metric("Failed", str(summary.failed_count))
+
+            st.markdown("### Output")
+            st.write(f"Artifact output: `{summary.artifact_output}`")
+
+            if mode == "context":
+                st.info(
+                    "Context-mode ingestion produces the search_context artifacts required "
+                    "for the PII Redaction flow."
+                )
+
+            skipped = raw.get("skipped", [])
+            failures = raw.get("failed", [])
+
             st.markdown("### Skipped")
-            st.json(raw.get("skipped", []))
+            if skipped:
+                st.dataframe(
+                    [
+                        {
+                            "logical_path": item.get("logical_path"),
+                            "skip_reason": item.get("skip_reason"),
+                            "artifact_type": item.get("artifact_type"),
+                            "artifact_path": item.get("artifact_path"),
+                        }
+                        for item in skipped
+                    ],
+                    use_container_width=True,
+                )
+            else:
+                st.write("No skipped items.")
 
             st.markdown("### Failures")
-            st.json(raw.get("failed", []))
+            if failures:
+                st.dataframe(
+                    [
+                        {
+                            "logical_path": item.get("logical_path"),
+                            "error": item.get("error"),
+                        }
+                        for item in failures
+                    ],
+                    use_container_width=True,
+                )
+            else:
+                st.write("No failed items.")
 
             st.markdown("### Recent runs")
-            st.json(service.list_recent_runs(Path(db_path).resolve(), limit=10))
+            recent_runs = service.list_recent_runs(Path(db_path).resolve(), limit=10)
+            if recent_runs:
+                st.dataframe(recent_runs, use_container_width=True)
+            else:
+                st.write("No recent runs found.")
 
         except Exception as exc:
             st.error(f"{type(exc).__name__}: {exc}")
