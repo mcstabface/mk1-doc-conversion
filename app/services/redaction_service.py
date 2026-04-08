@@ -34,7 +34,7 @@ class RedactionService:
         return self.repo.list_runs(limit=limit)
 
     def list_source_artifacts_for_run(self, run_id: int) -> list[dict]:
-        return self.repo.list_source_artifacts_for_run(run_id)
+        return self.repo.list_redaction_candidate_artifacts_for_run(run_id)
 
     def create_plan(self, request: RedactionPlanRequest) -> RedactionPlanSummary:
         result = self.plan_expert.run(
