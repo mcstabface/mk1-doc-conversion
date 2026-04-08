@@ -21,8 +21,13 @@ def main() -> None:
 
     st.sidebar.caption(selected.description)
 
-    st.write(f"Loaded capability: `{selected.capability_id}`")
-    st.write("Shell online. Capability views not wired yet.")
+    if selected.capability_id == "ingestion":
+        from app.capabilities.ingestion.view import render
+        render(config)
+    elif selected.capability_id == "redaction":
+        st.info("Redaction capability shell present but not wired yet.")
+    elif selected.capability_id == "audit_history":
+        st.info("Audit / History capability shell present but not wired yet.")
 
 
 if __name__ == "__main__":

@@ -105,3 +105,14 @@ Specifically:
 * define what existing MK1 framework pieces should be reused versus rebuilt cleanly
 
 Stop there and do not begin implementation until the plan-level contract is explicit.
+
+
+
+
+touch app/services/ingestion_service.py
+touch app/services/redaction_service.py
+touch app/services/audit_history_service.py
+touch app/capabilities/ingestion/view.py
+touch app/capabilities/redaction/view.py
+touch app/capabilities/audit_history/view.py
+touch app/contracts/*.py
