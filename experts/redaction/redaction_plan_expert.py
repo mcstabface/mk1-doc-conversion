@@ -320,6 +320,20 @@ class RedactionPlanExpert(BaseExpert):
         if registry_row:
             return registry_row["artifact_path"]
 
+        registry_row = conn.execute(
+            """
+            SELECT artifact_path
+            FROM search_context_registry
+            WHERE
+                source_path = ?
+                AND artifact_type = 'search_context_document'
+            """,
+            (physical_path,),
+        ).fetchone()
+
+        if registry_row:
+            return registry_row["artifact_path"]
+
         return None
 
     def _load_text_from_artifact(self, artifact_path: str) -> str:
