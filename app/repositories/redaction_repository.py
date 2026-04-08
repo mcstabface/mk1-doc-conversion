@@ -65,3 +65,32 @@ class RedactionRepository:
                 (source_artifact_id,),
             ).fetchone()
             return dict(row) if row else None
+
+    def list_redaction_candidate_artifacts_for_run(self, run_id: int) -> list[dict[str, Any]]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT DISTINCT
+                    s.artifact_id,
+                    s.logical_path,
+                    s.physical_path,
+                    s.source_type,
+                    s.sha256,
+                    s.size_bytes,
+                    COALESCE(o.active_artifact_path, scr.artifact_path) AS active_truth_artifact_path
+                FROM source_artifacts s
+                LEFT JOIN artifact_truth_overrides o
+                    ON o.source_artifact_id = s.artifact_id
+                    AND o.active_artifact_type = 'search_context_document'
+                LEFT JOIN search_context_registry scr
+                    ON scr.source_path = s.physical_path
+                    AND scr.source_hash = s.sha256
+                    AND scr.artifact_type = 'search_context_document'
+                WHERE s.run_id = ?
+                AND COALESCE(o.active_artifact_path, scr.artifact_path) IS NOT NULL
+                ORDER BY s.logical_path ASC
+                """,
+                (run_id,),
+            ).fetchall()
+            return [dict(r) for r in rows]
