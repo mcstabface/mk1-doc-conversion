@@ -116,6 +116,9 @@ class RedactionService:
             status=result["status"],
         )
 
+    def list_runs(self, limit: int = 50) -> list[dict]:
+        return self.repo.list_redaction_candidate_runs(limit=limit)
+
     def get_truth_override_state(self, source_artifact_id: int) -> dict | None:
         return self.repo.get_truth_override_for_source(source_artifact_id)
 

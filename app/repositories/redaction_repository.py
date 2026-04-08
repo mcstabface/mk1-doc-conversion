@@ -47,6 +47,29 @@ class RedactionRepository:
             ).fetchall()
             return [dict(r) for r in rows]
 
+    def list_redaction_candidate_runs(self, limit: int = 50) -> list[dict[str, Any]]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT DISTINCT
+                    r.run_id,
+                    r.source_root,
+                    r.status,
+                    r.started_utc,
+                    r.finished_utc,
+                    r.notes
+                FROM runs r
+                JOIN source_artifacts s
+                    ON s.run_id = r.run_id
+                WHERE r.status IN ('SUCCESS', 'FAILED', 'CONVERSION_RUN_COMPLETE')
+                ORDER BY r.run_id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
     def get_truth_override_for_source(self, source_artifact_id: int) -> dict[str, Any] | None:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
