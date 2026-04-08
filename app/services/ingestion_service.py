@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import sqlite3
+from pathlib import Path
+
 from director.conversion_director import ConversionDirector
 from experts.conversion.docx_to_pdf_expert import ensure_libreoffice_available
 
@@ -16,6 +19,20 @@ from app.repositories.run_repository import RunRepository
 class IngestionService:
     def __init__(self) -> None:
         pass
+
+    def _ensure_db(self, db_path: Path) -> None:
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        schema_path = repo_root / "artifacts" / "db" / "schema.sql"
+
+        if not schema_path.exists():
+            raise FileNotFoundError(f"Schema file not found: {schema_path}")
+
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with sqlite3.connect(db_path) as conn:
+            schema_sql = schema_path.read_text(encoding="utf-8")
+            conn.executescript(schema_sql)
+            conn.commit()
 
     def run_ingestion(self, request: IngestionRunRequest) -> IngestionRunResult:
         if request.mode not in ("pdf", "context"):

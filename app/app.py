@@ -25,7 +25,8 @@ def main() -> None:
         from app.capabilities.ingestion.view import render
         render(config)
     elif selected.capability_id == "redaction":
-        st.info("Redaction capability shell present but not wired yet.")
+        from app.capabilities.redaction.view import render
+        render(config)
     elif selected.capability_id == "audit_history":
         st.info("Audit / History capability shell present but not wired yet.")
 
