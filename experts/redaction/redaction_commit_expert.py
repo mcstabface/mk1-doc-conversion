@@ -412,6 +412,9 @@ class RedactionCommitExpert(BaseExpert):
             raise RuntimeError("Source artifact missing run_id.")
 
         metadata = dict(artifact.get("metadata", {}))
+        original_chunking = metadata.get("chunking")
+        original_chunk_count = len(artifact.get("chunks", []))
+
         metadata["redaction"] = {
             "profile": profile,
             "plan_id": plan_id,
@@ -419,6 +422,25 @@ class RedactionCommitExpert(BaseExpert):
             "ruleset_version": ruleset_version,
             "ruleset_hash": ruleset_hash,
             "applied_count": applied_count,
+            "created_utc": now_utc,
+        }
+        metadata["redaction_provenance"] = {
+            "source_artifact_id": source_artifact_id,
+            "source_truth_artifact_path": str(path),
+            "source_truth_artifact_type": artifact.get("artifact_type"),
+            "source_truth_document_hash": artifact.get("document_hash"),
+            "source_truth_producer_expert": artifact.get("producer_expert"),
+            "source_truth_created_utc": artifact.get("created_utc"),
+            "source_truth_status": artifact.get("status"),
+        }
+
+        if original_chunking is not None:
+            metadata["source_chunking"] = original_chunking
+
+        metadata["chunking"] = {
+            "status": "REQUIRES_RECHUNK",
+            "reason": "redacted_text_content_differs_from_source_truth",
+            "source_chunk_count": original_chunk_count,
             "created_utc": now_utc,
         }
 
@@ -435,7 +457,7 @@ class RedactionCommitExpert(BaseExpert):
             "text_content": text,
             "source": artifact.get("source", {}),
             "metadata": metadata,
-            "chunks": artifact.get("chunks", []),
+            "chunks": [],
             "redaction": {
                 "profile": profile,
                 "plan_id": plan_id,
