@@ -395,48 +395,15 @@ def render(config: AppConfig) -> None:
                 )
 
                 if st.button("Commit all artifacts in approved plan", width="stretch"):
-                    results = []
-
-                    for artifact_id in planned_ids:
-                        try:
-                            output_path = (
-                                Path(batch_output_root).resolve()
-                                / f"artifact_{artifact_id}.plan_{plan.plan_id}.{plan.profile}.redacted.json"
-                            )
-
-                            commit = service.commit(
-                                RedactionCommitRequest(
-                                    source_artifact_id=artifact_id,
-                                    profile=plan.profile,
-                                    ruleset_version=plan.ruleset_version,
-                                    ruleset_hash=plan.ruleset_hash,
-                                    plan_id=plan.plan_id,
-                                    approval_id=approval.approval_id,
-                                    artifact_output_path=output_path,
-                                )
-                            )
-
-                            results.append(
-                                {
-                                    "source_artifact_id": artifact_id,
-                                    "status": commit.status,
-                                    "redacted_artifact_id": commit.redacted_artifact_id,
-                                    "artifact_path": commit.artifact_path,
-                                    "error": "",
-                                }
-                            )
-                        except Exception as exc:
-                            results.append(
-                                {
-                                    "source_artifact_id": artifact_id,
-                                    "status": "FAILED",
-                                    "redacted_artifact_id": "",
-                                    "artifact_path": "",
-                                    "error": f"{type(exc).__name__}: {exc}",
-                                }
-                            )
-
-                    st.session_state["redaction_batch_commit_results"] = results
+                    st.session_state["redaction_batch_commit_results"] = service.commit_batch(
+                        artifact_ids=planned_ids,
+                        profile=plan.profile,
+                        ruleset_version=plan.ruleset_version,
+                        ruleset_hash=plan.ruleset_hash,
+                        plan_id=plan.plan_id,
+                        approval_id=approval.approval_id,
+                        output_root=Path(batch_output_root),
+                    )
 
                 batch_results = st.session_state["redaction_batch_commit_results"]
                 if batch_results:

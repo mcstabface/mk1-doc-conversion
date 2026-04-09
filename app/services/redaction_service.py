@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 from experts.redaction.redaction_plan_expert import RedactionPlanExpert
@@ -116,6 +115,60 @@ class RedactionService:
             artifact_hash=result["artifact_hash"],
             status=result["status"],
         )
+
+    def commit_batch(
+        self,
+        *,
+        artifact_ids: list[int],
+        profile: str,
+        ruleset_version: str,
+        ruleset_hash: str,
+        plan_id: int,
+        approval_id: int,
+        output_root: Path,
+    ) -> list[dict]:
+        results: list[dict] = []
+
+        for artifact_id in artifact_ids:
+            try:
+                output_path = (
+                    output_root.resolve()
+                    / f"artifact_{artifact_id}.plan_{plan_id}.{profile}.redacted.json"
+                )
+
+                commit = self.commit(
+                    RedactionCommitRequest(
+                        source_artifact_id=artifact_id,
+                        profile=profile,
+                        ruleset_version=ruleset_version,
+                        ruleset_hash=ruleset_hash,
+                        plan_id=plan_id,
+                        approval_id=approval_id,
+                        artifact_output_path=output_path,
+                    )
+                )
+
+                results.append(
+                    {
+                        "source_artifact_id": artifact_id,
+                        "status": commit.status,
+                        "redacted_artifact_id": commit.redacted_artifact_id,
+                        "artifact_path": commit.artifact_path,
+                        "error": "",
+                    }
+                )
+            except Exception as exc:
+                results.append(
+                    {
+                        "source_artifact_id": artifact_id,
+                        "status": "FAILED",
+                        "redacted_artifact_id": "",
+                        "artifact_path": "",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                )
+
+        return results
 
     def list_runs(self, limit: int = 50) -> list[dict]:
         candidate_runs = self.repo.list_redaction_candidate_runs(limit=limit)
