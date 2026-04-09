@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from experts.redaction.redaction_plan_expert import RedactionPlanExpert
 from experts.redaction.redaction_approval_record_expert import RedactionApprovalRecordExpert
 from experts.redaction.redaction_preview_expert import RedactionPreviewExpert
 from experts.redaction.redaction_commit_expert import RedactionCommitExpert
+from experts.llm_search.search_context_chunk_expert import SearchContextChunkExpert
+from experts.llm_search.embedding_chunk_expert import EmbeddingChunkExpert
+from mk1_io.artifact_writer import write_validated_artifact
 
 from app.contracts.redaction import (
     RedactionPlanRequest,
@@ -171,6 +175,50 @@ class RedactionService:
                 )
 
         return results
+
+    def rechunk_search_context_artifact(
+        self,
+        *,
+        artifact_path: Path,
+        output_path: Path,
+    ) -> dict:
+        artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+        result = SearchContextChunkExpert().run(
+            {"search_context_document": artifact}
+        )["search_context_chunks"]
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        write_validated_artifact(output_path, result)
+
+        return {
+            "status": "COMPLETE",
+            "source_artifact_path": str(artifact_path),
+            "chunk_artifact_path": str(output_path),
+            "chunk_count": len(result["chunks"]),
+            "chunk_source_mode": result.get("chunking", {}).get("chunk_source_mode"),
+            "redaction_present": bool(result.get("redaction")),
+        }
+
+    def generate_embeddings_for_chunk_artifact(
+        self,
+        *,
+        chunk_artifact_path: Path,
+        output_dir: Path,
+        embedding_model: str = "nomic-embed-text",
+        endpoint: str = "http://localhost:11434/api/embeddings",
+        batch_size: int = 64,
+    ) -> dict:
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        return EmbeddingChunkExpert().run(
+            {
+                "chunk_artifact_path": str(chunk_artifact_path),
+                "output_dir": str(output_dir),
+                "embedding_model": embedding_model,
+                "endpoint": endpoint,
+                "batch_size": batch_size,
+            }
+        )
 
     def list_runs(self, limit: int = 50) -> list[dict]:
         candidate_runs = self.repo.list_redaction_candidate_runs(limit=limit)
