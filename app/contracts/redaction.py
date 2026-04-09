@@ -20,6 +20,8 @@ class RedactionPlanSummary:
     profile: str
     ruleset_version: str
     ruleset_hash: str
+    artifacts_selected: int
+    artifacts_with_suggestions: int
     suggestions_created: int
     category_counts: dict
     status: str

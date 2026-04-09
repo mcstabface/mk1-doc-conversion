@@ -53,6 +53,8 @@ class RedactionService:
             profile=result["profile"],
             ruleset_version=result["ruleset_version"],
             ruleset_hash=result["ruleset_hash"],
+            artifacts_selected=result["artifacts_selected"],
+            artifacts_with_suggestions=result["artifacts_with_suggestions"],
             suggestions_created=result["suggestions_created"],
             category_counts=result["category_counts"],
             status=result["status"],

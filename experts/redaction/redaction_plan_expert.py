@@ -235,7 +235,8 @@ class RedactionPlanExpert(BaseExpert):
                 raise RuntimeError("Failed to create redaction plan.")
 
             suggestions_created = 0
-            artifacts_planned = 0
+            artifacts_selected = len(artifact_ids)
+            artifacts_with_suggestions = 0
             category_counts = {category: 0 for category, _, _ in rules}
 
             for artifact_id in artifact_ids:
@@ -282,6 +283,7 @@ class RedactionPlanExpert(BaseExpert):
                 )
 
                 seen_suggestion_keys = set()
+                artifact_suggestions_created = 0
 
                 for category, rule_id, original_text, replacement_text in matches:
                     suggestion_key = (
@@ -320,9 +322,11 @@ class RedactionPlanExpert(BaseExpert):
                         ),
                     )
                     suggestions_created += 1
+                    artifact_suggestions_created += 1
                     category_counts[category] += 1
 
-                artifacts_planned += 1
+                if artifact_suggestions_created > 0:
+                    artifacts_with_suggestions += 1
 
             conn.commit()
 
@@ -340,7 +344,8 @@ class RedactionPlanExpert(BaseExpert):
                 "profile": profile,
                 "ruleset_version": ruleset_version,
                 "ruleset_hash": ruleset_hash,
-                "artifacts_planned": artifacts_planned,
+                "artifacts_selected": artifacts_selected,
+                "artifacts_with_suggestions": artifacts_with_suggestions,
                 "suggestions_created": suggestions_created,
                 "category_counts": category_counts,
                 "created_utc": now_utc,

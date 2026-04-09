@@ -340,8 +340,10 @@ def render(config: AppConfig) -> None:
             c3.metric("Status", plan.status)
             c4.metric("Suggestions", str(plan.suggestions_created))
 
-            planned_ids = st.session_state["redaction_planned_artifact_ids"] or []
-            st.caption(f"Artifacts in plan: {len(planned_ids)}")
+            st.caption(
+                f"Artifacts selected: {plan.artifacts_selected} | "
+                f"Artifacts with suggestions: {plan.artifacts_with_suggestions}"
+            )
 
             st.markdown("#### Category counts")
             st.dataframe(
@@ -394,8 +396,8 @@ def render(config: AppConfig) -> None:
                 )
 
                 st.caption(
-                    f"Artifacts selected in plan: {len(planned_ids)} | "
-                    f"Artifacts with redaction suggestions: {len(commit_artifact_ids)}"
+                    f"Artifacts selected in plan: {plan.artifacts_selected} | "
+                    f"Artifacts with redaction suggestions: {plan.artifacts_with_suggestions}"
                 )
 
                 if not commit_artifact_ids:
