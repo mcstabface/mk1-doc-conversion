@@ -38,6 +38,7 @@ def render(config: AppConfig) -> None:
         st.session_state["redaction_selected_run_id"] = run_id
         st.session_state["redaction_plan_summary"] = None
         st.session_state["redaction_planned_artifact_id"] = None
+        st.session_state["redaction_planned_artifact_ids"] = None
         st.session_state["redaction_approval_summary"] = None
         st.session_state["redaction_preview_summary"] = None
         st.session_state["redaction_commit_summary"] = None
@@ -90,107 +91,170 @@ def render(config: AppConfig) -> None:
     }
     artifact_labels = list(artifact_options.keys())
 
-    default_artifact_label = artifact_labels[0]
-    selected_artifact_label = st.selectbox(
-        "Select source artifact",
-        artifact_labels,
+    planning_mode = st.selectbox(
+        "Planning mode",
+        ["single", "multi-select", "all eligible"],
         index=0,
     )
-    st.session_state["redaction_selected_artifact_label"] = selected_artifact_label
 
-    selected_artifact = artifact_options[selected_artifact_label]
-    selected_artifact_id = int(selected_artifact["artifact_id"])
+    selected_artifact_labels: list[str] = []
+    selected_artifact_id: int | None = None
+    selected_artifact = None
 
-    st.markdown("### Selected artifact")
-    st.dataframe(
-        [
-            {
-                "artifact_id": selected_artifact.get("artifact_id"),
-                "logical_path": selected_artifact.get("logical_path"),
-                "source_type": selected_artifact.get("source_type"),
-                "active_truth_artifact_path": selected_artifact.get("active_truth_artifact_path"),
-            }
-        ],
-        width="stretch",
-    )
+    if planning_mode == "single":
+        selected_artifact_label = st.selectbox(
+            "Select source artifact",
+            artifact_labels,
+            index=0,
+        )
+        st.session_state["redaction_selected_artifact_label"] = selected_artifact_label
 
-    st.markdown("### Prior plans for this artifact")
-    plan_history = service.list_plan_history_for_source_artifact(
-        source_artifact_id=selected_artifact_id,
-        limit=10,
-    )
+        selected_artifact = artifact_options[selected_artifact_label]
+        selected_artifact_id = int(selected_artifact["artifact_id"])
+        selected_artifact_labels = [selected_artifact_label]
 
-    if plan_history:
+        st.markdown("### Selected artifact")
         st.dataframe(
             [
                 {
-                    "plan_id": item.get("plan_id"),
-                    "run_id": item.get("run_id"),
-                    "profile": item.get("profile"),
-                    "ruleset_version": item.get("ruleset_version"),
-                    "plan_status": item.get("plan_status"),
-                    "suggestions_created": item.get("suggestions_created"),
-                    "approval_id": item.get("approval_id"),
-                    "redacted_artifact_id": item.get("redacted_artifact_id"),
-                    "plan_created_utc": item.get("plan_created_utc"),
-                    "approved_utc": item.get("approved_utc"),
-                    "committed_utc": item.get("committed_utc"),
+                    "artifact_id": selected_artifact.get("artifact_id"),
+                    "logical_path": selected_artifact.get("logical_path"),
+                    "source_type": selected_artifact.get("source_type"),
+                    "active_truth_artifact_path": selected_artifact.get("active_truth_artifact_path"),
                 }
-                for item in plan_history
             ],
             width="stretch",
         )
 
-        history_options = {
-            (
-                f"plan {item['plan_id']} | "
-                f"{item['profile']} | "
-                f"{item['ruleset_version']} | "
-                f"suggestions={item['suggestions_created']}"
-            ): item
-            for item in plan_history
-        }
+        history_artifact_id = selected_artifact_id
 
-        selected_history_label = st.selectbox(
-            "Inspect prior plan history",
-            list(history_options.keys()),
-            key=f"redaction_history_{selected_artifact_id}",
+    elif planning_mode == "multi-select":
+        selected_artifact_labels = st.multiselect(
+            "Select source artifacts",
+            artifact_labels,
+            default=[],
         )
-        selected_history = history_options[selected_history_label]
 
-        st.markdown("#### Prior plan category counts")
+        st.markdown("### Selected artifacts")
+        if selected_artifact_labels:
+            st.dataframe(
+                [
+                    {
+                        "artifact_id": artifact_options[label].get("artifact_id"),
+                        "logical_path": artifact_options[label].get("logical_path"),
+                        "source_type": artifact_options[label].get("source_type"),
+                    }
+                    for label in selected_artifact_labels
+                ],
+                width="stretch",
+            )
+        else:
+            st.write("No artifacts selected.")
+
+        history_artifact_id = None
+
+    else:
+        selected_artifact_labels = artifact_labels
+
+        st.markdown("### Selected artifacts")
+        st.write(f"All eligible artifacts selected: {len(selected_artifact_labels)}")
         st.dataframe(
             [
-                {"category": category, "count": count}
-                for category, count in selected_history.get("category_counts", {}).items()
+                {
+                    "artifact_id": artifact_options[label].get("artifact_id"),
+                    "logical_path": artifact_options[label].get("logical_path"),
+                    "source_type": artifact_options[label].get("source_type"),
+                }
+                for label in selected_artifact_labels[:25]
             ],
             width="stretch",
         )
+        if len(selected_artifact_labels) > 25:
+            st.caption("Showing first 25 selected artifacts.")
 
-        st.markdown("#### Prior plan state")
-        st.json(
-            {
-                "plan_id": selected_history.get("plan_id"),
-                "run_id": selected_history.get("run_id"),
-                "profile": selected_history.get("profile"),
-                "ruleset_version": selected_history.get("ruleset_version"),
-                "ruleset_hash": selected_history.get("ruleset_hash"),
-                "plan_status": selected_history.get("plan_status"),
-                "suggestions_created": selected_history.get("suggestions_created"),
-                "approval_id": selected_history.get("approval_id"),
-                "approved_utc": selected_history.get("approved_utc"),
-                "redacted_artifact_id": selected_history.get("redacted_artifact_id"),
-                "redacted_artifact_path": selected_history.get("redacted_artifact_path"),
-                "committed_utc": selected_history.get("committed_utc"),
+        history_artifact_id = None
+
+    if history_artifact_id is not None:
+        st.markdown("### Prior plans for this artifact")
+        plan_history = service.list_plan_history_for_source_artifact(
+            source_artifact_id=history_artifact_id,
+            limit=10,
+        )
+
+        if plan_history:
+            st.dataframe(
+                [
+                    {
+                        "plan_id": item.get("plan_id"),
+                        "run_id": item.get("run_id"),
+                        "profile": item.get("profile"),
+                        "ruleset_version": item.get("ruleset_version"),
+                        "plan_status": item.get("plan_status"),
+                        "suggestions_created": item.get("suggestions_created"),
+                        "approval_id": item.get("approval_id"),
+                        "redacted_artifact_id": item.get("redacted_artifact_id"),
+                        "plan_created_utc": item.get("plan_created_utc"),
+                        "approved_utc": item.get("approved_utc"),
+                        "committed_utc": item.get("committed_utc"),
+                    }
+                    for item in plan_history
+                ],
+                width="stretch",
+            )
+
+            history_options = {
+                (
+                    f"plan {item['plan_id']} | "
+                    f"{item['profile']} | "
+                    f"{item['ruleset_version']} | "
+                    f"suggestions={item['suggestions_created']}"
+                ): item
+                for item in plan_history
             }
-        )
 
-        st.caption(
-            "Historical preview text is not currently persisted in the schema, so prior preview "
-            "documents cannot be reloaded yet from history."
-        )
+            selected_history_label = st.selectbox(
+                "Inspect prior plan history",
+                list(history_options.keys()),
+                key=f"redaction_history_{history_artifact_id}",
+            )
+            selected_history = history_options[selected_history_label]
+
+            st.markdown("#### Prior plan category counts")
+            st.dataframe(
+                [
+                    {"category": category, "count": count}
+                    for category, count in selected_history.get("category_counts", {}).items()
+                ],
+                width="stretch",
+            )
+
+            st.markdown("#### Prior plan state")
+            st.json(
+                {
+                    "plan_id": selected_history.get("plan_id"),
+                    "run_id": selected_history.get("run_id"),
+                    "profile": selected_history.get("profile"),
+                    "ruleset_version": selected_history.get("ruleset_version"),
+                    "ruleset_hash": selected_history.get("ruleset_hash"),
+                    "plan_status": selected_history.get("plan_status"),
+                    "suggestions_created": selected_history.get("suggestions_created"),
+                    "approval_id": selected_history.get("approval_id"),
+                    "approved_utc": selected_history.get("approved_utc"),
+                    "redacted_artifact_id": selected_history.get("redacted_artifact_id"),
+                    "redacted_artifact_path": selected_history.get("redacted_artifact_path"),
+                    "committed_utc": selected_history.get("committed_utc"),
+                }
+            )
+
+            st.caption(
+                "Historical preview text is not currently persisted in the schema, so prior preview "
+                "documents cannot be reloaded yet from history."
+            )
+        else:
+            st.write("No prior plans found for this source artifact.")
     else:
-        st.write("No prior plans found for this source artifact.")
+        st.markdown("### Prior plans")
+        st.caption("History inspection is shown for single-artifact selection only.")
 
     profile_options = {
         "business_sensitive": {
@@ -214,6 +278,8 @@ def render(config: AppConfig) -> None:
         st.session_state["redaction_plan_summary"] = None
     if "redaction_planned_artifact_id" not in st.session_state:
         st.session_state["redaction_planned_artifact_id"] = None
+    if "redaction_planned_artifact_ids" not in st.session_state:
+        st.session_state["redaction_planned_artifact_ids"] = None
     if "redaction_approval_summary" not in st.session_state:
         st.session_state["redaction_approval_summary"] = None
     if "redaction_preview_summary" not in st.session_state:
@@ -221,21 +287,32 @@ def render(config: AppConfig) -> None:
     if "redaction_commit_summary" not in st.session_state:
         st.session_state["redaction_commit_summary"] = None
 
+    planned_artifact_ids = [
+        int(artifact_options[label]["artifact_id"])
+        for label in selected_artifact_labels
+    ]
+
     if st.button("Create plan", width="stretch"):
-        plan = service.create_plan(
-            RedactionPlanRequest(
-                run_id=run_id,
-                profile=profile,
-                ruleset_version=ruleset_version,
-                ruleset_hash=ruleset_hash,
-                artifact_ids=[selected_artifact_id],
+        if not planned_artifact_ids:
+            st.error("Select at least one artifact for planning.")
+        else:
+            plan = service.create_plan(
+                RedactionPlanRequest(
+                    run_id=run_id,
+                    profile=profile,
+                    ruleset_version=ruleset_version,
+                    ruleset_hash=ruleset_hash,
+                    artifact_ids=planned_artifact_ids,
+                )
             )
-        )
-        st.session_state["redaction_plan_summary"] = plan
-        st.session_state["redaction_planned_artifact_id"] = selected_artifact_id
-        st.session_state["redaction_approval_summary"] = None
-        st.session_state["redaction_preview_summary"] = None
-        st.session_state["redaction_commit_summary"] = None
+            st.session_state["redaction_plan_summary"] = plan
+            st.session_state["redaction_planned_artifact_ids"] = planned_artifact_ids
+            st.session_state["redaction_planned_artifact_id"] = (
+                planned_artifact_ids[0] if len(planned_artifact_ids) == 1 else None
+            )
+            st.session_state["redaction_approval_summary"] = None
+            st.session_state["redaction_preview_summary"] = None
+            st.session_state["redaction_commit_summary"] = None
 
     plan = st.session_state["redaction_plan_summary"]
     if plan is not None:
@@ -246,6 +323,9 @@ def render(config: AppConfig) -> None:
         c2.metric("Run ID", str(plan.run_id))
         c3.metric("Status", plan.status)
         c4.metric("Suggestions", str(plan.suggestions_created))
+
+        planned_ids = st.session_state["redaction_planned_artifact_ids"] or []
+        st.caption(f"Artifacts in plan: {len(planned_ids)}")
 
         st.markdown("#### Category counts")
         st.dataframe(
@@ -285,6 +365,14 @@ def render(config: AppConfig) -> None:
         c3.metric("Status", approval.status)
 
         source_artifact_id = st.session_state["redaction_planned_artifact_id"]
+        planned_ids = st.session_state["redaction_planned_artifact_ids"] or []
+
+        if len(planned_ids) != 1:
+            st.info(
+                "Preview and commit currently operate on single-artifact plans only. "
+                "This plan was created in multi-artifact mode."
+            )
+            return
 
         if source_artifact_id is None:
             st.error("No planned artifact is bound to the current plan.")
