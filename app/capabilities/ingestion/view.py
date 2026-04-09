@@ -9,6 +9,16 @@ from app.contracts.ingestion import IngestionRunRequest
 from app.services.ingestion_service import IngestionService
 
 
+def _list_recent_search_context_files(artifact_root: Path, limit: int = 25) -> list[str]:
+    search_context_dir = artifact_root / "search_context"
+    if not search_context_dir.exists():
+        return []
+
+    files = [p for p in search_context_dir.glob("*.json") if p.is_file()]
+    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return [str(p.resolve()) for p in files[:limit]]
+
+
 def _list_recent_chunk_files(artifact_root: Path, limit: int = 25) -> list[str]:
     chunk_dir = artifact_root / "chunks"
     if not chunk_dir.exists():
@@ -143,13 +153,31 @@ def render(config: AppConfig) -> None:
             st.write("No recent runs found.")
 
     with st.expander("Post-processing: rechunk and embeddings", expanded=False):
-        st.markdown("#### Rechunk")
+        st.markdown("#### Chunk")
+
+        recent_search_context_files = _list_recent_search_context_files(
+            Path(artifact_root).resolve(),
+            limit=25,
+        )
+
+        recent_search_context_options = [""] + recent_search_context_files
+        selected_recent_search_context = st.selectbox(
+            "Recent search-context artifacts",
+            recent_search_context_options,
+            index=0,
+            format_func=lambda x: "Select a recent search-context artifact..." if x == "" else x,
+        )
 
         artifact_input_path = st.text_input(
             "Search-context artifact path",
             value="",
             placeholder="Paste a search_context_document JSON path here",
         )
+
+        if selected_recent_search_context:
+            artifact_input_path = selected_recent_search_context
+
+        st.caption("You can paste a path manually or pick a recent search-context artifact above.")
 
         chunk_output_default = (
             Path(artifact_root).resolve() / "chunks" / "manual_rechunk_output.chunks.json"
@@ -159,7 +187,7 @@ def render(config: AppConfig) -> None:
             value=str(chunk_output_default),
         )
 
-        if st.button("Rechunk artifact", width="stretch"):
+        if st.button("Chunk artifact", width="stretch"):
             try:
                 st.session_state["ingestion_rechunk_summary"] = service.rechunk_search_context_artifact(
                     artifact_path=Path(artifact_input_path).resolve(),
