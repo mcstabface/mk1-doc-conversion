@@ -174,87 +174,93 @@ def render(config: AppConfig) -> None:
 
         history_artifact_id = None
 
-    if history_artifact_id is not None:
-        st.markdown("### Prior plans for this artifact")
-        plan_history = service.list_plan_history_for_source_artifact(
-            source_artifact_id=history_artifact_id,
-            limit=10,
+    st.markdown("### Prior plans")
+
+    history_artifact_label = st.selectbox(
+        "Inspect history for artifact",
+        artifact_labels,
+        index=0,
+        key=f"redaction_history_artifact_{run_id}",
+    )
+    history_artifact = artifact_options[history_artifact_label]
+    history_artifact_id = int(history_artifact["artifact_id"])
+
+    plan_history = service.list_plan_history_for_source_artifact(
+        source_artifact_id=history_artifact_id,
+        limit=10,
+    )
+
+    if plan_history:
+        st.dataframe(
+            [
+                {
+                    "plan_id": item.get("plan_id"),
+                    "run_id": item.get("run_id"),
+                    "profile": item.get("profile"),
+                    "ruleset_version": item.get("ruleset_version"),
+                    "plan_status": item.get("plan_status"),
+                    "suggestions_created": item.get("suggestions_created"),
+                    "approval_id": item.get("approval_id"),
+                    "redacted_artifact_id": item.get("redacted_artifact_id"),
+                    "plan_created_utc": item.get("plan_created_utc"),
+                    "approved_utc": item.get("approved_utc"),
+                    "committed_utc": item.get("committed_utc"),
+                }
+                for item in plan_history
+            ],
+            width="stretch",
         )
 
-        if plan_history:
-            st.dataframe(
-                [
-                    {
-                        "plan_id": item.get("plan_id"),
-                        "run_id": item.get("run_id"),
-                        "profile": item.get("profile"),
-                        "ruleset_version": item.get("ruleset_version"),
-                        "plan_status": item.get("plan_status"),
-                        "suggestions_created": item.get("suggestions_created"),
-                        "approval_id": item.get("approval_id"),
-                        "redacted_artifact_id": item.get("redacted_artifact_id"),
-                        "plan_created_utc": item.get("plan_created_utc"),
-                        "approved_utc": item.get("approved_utc"),
-                        "committed_utc": item.get("committed_utc"),
-                    }
-                    for item in plan_history
-                ],
-                width="stretch",
-            )
+        history_options = {
+            (
+                f"plan {item['plan_id']} | "
+                f"{item['profile']} | "
+                f"{item['ruleset_version']} | "
+                f"suggestions={item['suggestions_created']}"
+            ): item
+            for item in plan_history
+        }
 
-            history_options = {
-                (
-                    f"plan {item['plan_id']} | "
-                    f"{item['profile']} | "
-                    f"{item['ruleset_version']} | "
-                    f"suggestions={item['suggestions_created']}"
-                ): item
-                for item in plan_history
+        selected_history_label = st.selectbox(
+            "Inspect prior plan history",
+            list(history_options.keys()),
+            key=f"redaction_history_{history_artifact_id}",
+        )
+        selected_history = history_options[selected_history_label]
+
+        st.markdown("#### Prior plan category counts")
+        st.dataframe(
+            [
+                {"category": category, "count": count}
+                for category, count in selected_history.get("category_counts", {}).items()
+            ],
+            width="stretch",
+        )
+
+        st.markdown("#### Prior plan state")
+        st.json(
+            {
+                "plan_id": selected_history.get("plan_id"),
+                "run_id": selected_history.get("run_id"),
+                "profile": selected_history.get("profile"),
+                "ruleset_version": selected_history.get("ruleset_version"),
+                "ruleset_hash": selected_history.get("ruleset_hash"),
+                "plan_status": selected_history.get("plan_status"),
+                "suggestions_created": selected_history.get("suggestions_created"),
+                "approval_id": selected_history.get("approval_id"),
+                "approved_utc": selected_history.get("approved_utc"),
+                "redacted_artifact_id": selected_history.get("redacted_artifact_id"),
+                "redacted_artifact_path": selected_history.get("redacted_artifact_path"),
+                "committed_utc": selected_history.get("committed_utc"),
             }
+        )
 
-            selected_history_label = st.selectbox(
-                "Inspect prior plan history",
-                list(history_options.keys()),
-                key=f"redaction_history_{history_artifact_id}",
-            )
-            selected_history = history_options[selected_history_label]
-
-            st.markdown("#### Prior plan category counts")
-            st.dataframe(
-                [
-                    {"category": category, "count": count}
-                    for category, count in selected_history.get("category_counts", {}).items()
-                ],
-                width="stretch",
-            )
-
-            st.markdown("#### Prior plan state")
-            st.json(
-                {
-                    "plan_id": selected_history.get("plan_id"),
-                    "run_id": selected_history.get("run_id"),
-                    "profile": selected_history.get("profile"),
-                    "ruleset_version": selected_history.get("ruleset_version"),
-                    "ruleset_hash": selected_history.get("ruleset_hash"),
-                    "plan_status": selected_history.get("plan_status"),
-                    "suggestions_created": selected_history.get("suggestions_created"),
-                    "approval_id": selected_history.get("approval_id"),
-                    "approved_utc": selected_history.get("approved_utc"),
-                    "redacted_artifact_id": selected_history.get("redacted_artifact_id"),
-                    "redacted_artifact_path": selected_history.get("redacted_artifact_path"),
-                    "committed_utc": selected_history.get("committed_utc"),
-                }
-            )
-
-            st.caption(
-                "Historical preview text is not currently persisted in the schema, so prior preview "
-                "documents cannot be reloaded yet from history."
-            )
-        else:
-            st.write("No prior plans found for this source artifact.")
+        st.caption(
+            "Historical preview text is not currently persisted in the schema, so prior preview "
+            "documents cannot be reloaded yet from history."
+        )
     else:
-        st.markdown("### Prior plans")
-        st.caption("History inspection is shown for single-artifact selection only.")
+        st.write("No prior plans found for this source artifact.")
 
     profile_options = {
         "business_sensitive": {
