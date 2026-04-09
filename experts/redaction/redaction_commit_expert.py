@@ -391,9 +391,51 @@ class RedactionCommitExpert(BaseExpert):
                 f"No redactions were applied for plan_id={plan_id}."
             )
 
-        return {
+        source_path = (
+            artifact.get("source_path")
+            or artifact.get("source", {}).get("source_path")
+            or source_row["physical_path"]
+        )
+        logical_path = (
+            artifact.get("logical_path")
+            or artifact.get("source", {}).get("logical_path")
+            or source_row["logical_path"]
+        )
+        document_hash = (
+            artifact.get("document_hash")
+            or artifact.get("source", {}).get("source_hash")
+            or source_row["sha256"]
+        )
+        run_id = artifact.get("run_id")
+
+        if run_id is None:
+            raise RuntimeError("Source artifact missing run_id.")
+
+        metadata = dict(artifact.get("metadata", {}))
+        metadata["redaction"] = {
+            "profile": profile,
+            "plan_id": plan_id,
+            "approval_id": approval_id,
+            "ruleset_version": ruleset_version,
+            "ruleset_hash": ruleset_hash,
+            "applied_count": applied_count,
+            "created_utc": now_utc,
+        }
+
+        redacted_document = {
             "artifact_type": "search_context_document",
+            "schema_version": "search_context_document_v1",
+            "created_utc": now_utc,
+            "producer_expert": "RedactionCommitExpert",
+            "run_id": run_id,
+            "status": "COMPLETE",
+            "source_path": source_path,
+            "logical_path": logical_path,
+            "document_hash": document_hash,
             "text_content": text,
+            "source": artifact.get("source", {}),
+            "metadata": metadata,
+            "chunks": artifact.get("chunks", []),
             "redaction": {
                 "profile": profile,
                 "plan_id": plan_id,
@@ -404,3 +446,5 @@ class RedactionCommitExpert(BaseExpert):
                 "created_utc": now_utc,
             },
         }
+
+        return redacted_document
