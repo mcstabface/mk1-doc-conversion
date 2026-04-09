@@ -43,6 +43,7 @@ def render(config: AppConfig) -> None:
         st.session_state["redaction_approval_summary"] = None
         st.session_state["redaction_preview_summary"] = None
         st.session_state["redaction_commit_summary"] = None
+        st.session_state["redaction_batch_commit_results"] = None
         st.session_state["redaction_selected_artifact_label"] = None
 
     artifacts = service.list_source_artifacts_for_run(run_id)
@@ -115,6 +116,8 @@ def render(config: AppConfig) -> None:
         st.session_state["redaction_preview_summary"] = None
     if "redaction_commit_summary" not in st.session_state:
         st.session_state["redaction_commit_summary"] = None
+    if "redaction_batch_commit_results" not in st.session_state:
+        st.session_state["redaction_batch_commit_results"] = None
 
     st.caption(f"Eligible artifacts in run: {len(artifact_labels)}")
 
@@ -237,6 +240,7 @@ def render(config: AppConfig) -> None:
                 st.session_state["redaction_approval_summary"] = None
                 st.session_state["redaction_preview_summary"] = None
                 st.session_state["redaction_commit_summary"] = None
+                st.session_state["redaction_batch_commit_results"] = None
 
     with st.expander("Prior plans", expanded=False):
         history_artifact_label = st.selectbox(
@@ -366,6 +370,7 @@ def render(config: AppConfig) -> None:
                     st.session_state["redaction_approval_summary"] = approval
                     st.session_state["redaction_preview_summary"] = None
                     st.session_state["redaction_commit_summary"] = None
+                    st.session_state["redaction_batch_commit_results"] = None
 
     approval = st.session_state["redaction_approval_summary"]
     if approval is not None:
@@ -380,9 +385,71 @@ def render(config: AppConfig) -> None:
 
             if len(planned_ids) != 1:
                 st.info(
-                    "Preview and commit currently operate on single-artifact plans only. "
-                    "This plan was created in multi-artifact mode."
+                    "Preview text is only shown for single-artifact plans. "
+                    "Batch commit is available below for this approved multi-artifact plan."
                 )
+
+                batch_output_root = st.text_input(
+                    "Batch commit output directory",
+                    value=str(service.db_path.parent.parent / "redacted"),
+                )
+
+                if st.button("Commit all artifacts in approved plan", width="stretch"):
+                    results = []
+
+                    for artifact_id in planned_ids:
+                        try:
+                            output_path = (
+                                Path(batch_output_root).resolve()
+                                / f"artifact_{artifact_id}.plan_{plan.plan_id}.{plan.profile}.redacted.json"
+                            )
+
+                            commit = service.commit(
+                                RedactionCommitRequest(
+                                    source_artifact_id=artifact_id,
+                                    profile=plan.profile,
+                                    ruleset_version=plan.ruleset_version,
+                                    ruleset_hash=plan.ruleset_hash,
+                                    plan_id=plan.plan_id,
+                                    approval_id=approval.approval_id,
+                                    artifact_output_path=output_path,
+                                )
+                            )
+
+                            results.append(
+                                {
+                                    "source_artifact_id": artifact_id,
+                                    "status": commit.status,
+                                    "redacted_artifact_id": commit.redacted_artifact_id,
+                                    "artifact_path": commit.artifact_path,
+                                    "error": "",
+                                }
+                            )
+                        except Exception as exc:
+                            results.append(
+                                {
+                                    "source_artifact_id": artifact_id,
+                                    "status": "FAILED",
+                                    "redacted_artifact_id": "",
+                                    "artifact_path": "",
+                                    "error": f"{type(exc).__name__}: {exc}",
+                                }
+                            )
+
+                    st.session_state["redaction_batch_commit_results"] = results
+
+                batch_results = st.session_state["redaction_batch_commit_results"]
+                if batch_results:
+                    success_count = len([r for r in batch_results if r["status"] == "COMPLETE"])
+                    failure_count = len(batch_results) - success_count
+
+                    r1, r2, r3 = st.columns(3)
+                    r1.metric("Artifacts attempted", str(len(batch_results)))
+                    r2.metric("Committed", str(success_count))
+                    r3.metric("Failed", str(failure_count))
+
+                    st.dataframe(batch_results, width="stretch")
+
                 return
 
             if source_artifact_id is None:
@@ -402,6 +469,7 @@ def render(config: AppConfig) -> None:
                 )
                 st.session_state["redaction_preview_summary"] = preview
                 st.session_state["redaction_commit_summary"] = None
+                st.session_state["redaction_batch_commit_results"] = None
 
     preview = st.session_state["redaction_preview_summary"]
     if preview is not None:
