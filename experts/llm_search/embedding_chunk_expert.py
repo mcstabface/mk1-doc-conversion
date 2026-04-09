@@ -5,6 +5,7 @@ import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from mk1_io.artifact_writer import write_validated_artifact
@@ -15,7 +16,7 @@ class EmbeddingChunkExpert:
         chunk_path = Path(payload["chunk_artifact_path"])
         output_dir = Path(payload.get("output_dir", "artifacts/embeddings"))
         model = payload.get("embedding_model", "nomic-embed-text")
-        endpoint = payload.get("endpoint", "http://localhost:11434/api/embeddings")
+        endpoint = payload.get("endpoint", "http://localhost:11434/api/embed")
         batch_size = int(payload.get("batch_size", 64))
 
         if batch_size <= 0:
@@ -151,6 +152,7 @@ class EmbeddingChunkExpert:
 
         return {
             "artifact_type": "embedding_vector_batch",
+            "status": "COMPLETE",
             "source_artifact_path": str(chunk_path),
             "logical_path": logical_path,
             "embedding_model": model,
@@ -164,50 +166,115 @@ class EmbeddingChunkExpert:
         if not texts:
             return []
 
-        body = json.dumps({"model": model, "input": texts}).encode("utf-8")
-        req = Request(endpoint, data=body, headers={"Content-Type": "application/json"})
-        with urlopen(req, timeout=120) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+        parsed = urlparse(endpoint)
+        path = parsed.path.rstrip("/")
 
-        if "embeddings" in data:
-            embeddings = data["embeddings"]
-        elif "embedding" in data:
-            embeddings = [data["embedding"]]
-        else:
-            raise ValueError("Embedding response missing 'embeddings'/'embedding' field.")
-
-        if not isinstance(embeddings, list):
-            raise ValueError("Embedding response field is not a list.")
-
-        if len(embeddings) == len(texts):
+        if path.endswith("/api/embed"):
+            data = self._post_json(
+                endpoint,
+                {
+                    "model": model,
+                    "input": texts,
+                },
+            )
+            embeddings = data.get("embeddings")
+            if not isinstance(embeddings, list):
+                raise ValueError("Embed response missing valid 'embeddings' list.")
             return [self._validate_vector(vector) for vector in embeddings]
+
+        if path.endswith("/api/embeddings"):
+            if len(texts) == 1:
+                return [self._embed_legacy_prompt(endpoint, model, texts[0])]
+            return self._embed_one_by_one(endpoint, model, texts)
+
+        data = self._post_json(
+            endpoint,
+            {
+                "model": model,
+                "input": texts,
+            },
+        )
+
+        if "embeddings" in data and isinstance(data["embeddings"], list):
+            embeddings = data["embeddings"]
+            if len(embeddings) == len(texts):
+                return [self._validate_vector(vector) for vector in embeddings]
+
+        if "embedding" in data and len(texts) == 1:
+            return [self._validate_vector(data["embedding"])]
 
         return self._embed_one_by_one(endpoint, model, texts)
 
     def _embed_one_by_one(self, endpoint: str, model: str, texts: list[str]) -> list[list[float]]:
         vectors: list[list[float]] = []
 
+        parsed = urlparse(endpoint)
+        path = parsed.path.rstrip("/")
+
         for text in texts:
-            body = json.dumps({"model": model, "input": [text]}).encode("utf-8")
-            req = Request(endpoint, data=body, headers={"Content-Type": "application/json"})
-            with urlopen(req, timeout=120) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
+            if path.endswith("/api/embed"):
+                data = self._post_json(
+                    endpoint,
+                    {
+                        "model": model,
+                        "input": [text],
+                    },
+                )
+
+                embeddings = data.get("embeddings")
+                if not isinstance(embeddings, list) or len(embeddings) != 1:
+                    raise ValueError(
+                        f"Per-item embed fallback expected 1 vector, got {len(embeddings) if isinstance(embeddings, list) else 'non-list'}."
+                    )
+
+                vectors.append(self._validate_vector(embeddings[0]))
+                continue
+
+            if path.endswith("/api/embeddings"):
+                vectors.append(self._embed_legacy_prompt(endpoint, model, text))
+                continue
+
+            data = self._post_json(
+                endpoint,
+                {
+                    "model": model,
+                    "input": [text],
+                },
+            )
 
             if "embeddings" in data:
                 embeddings = data["embeddings"]
+                if not isinstance(embeddings, list) or len(embeddings) != 1:
+                    raise ValueError(
+                        f"Per-item embedding fallback expected 1 vector, got {len(embeddings) if isinstance(embeddings, list) else 'non-list'}."
+                    )
+                vectors.append(self._validate_vector(embeddings[0]))
             elif "embedding" in data:
-                embeddings = [data["embedding"]]
+                vectors.append(self._validate_vector(data["embedding"]))
             else:
                 raise ValueError("Embedding response missing 'embeddings'/'embedding' field.")
 
-            if not isinstance(embeddings, list) or len(embeddings) != 1:
-                raise ValueError(
-                    f"Per-item embedding fallback expected 1 vector, got {len(embeddings) if isinstance(embeddings, list) else 'non-list'}."
-                )
-
-            vectors.append(self._validate_vector(embeddings[0]))
-
         return vectors
+
+    def _embed_legacy_prompt(self, endpoint: str, model: str, text: str) -> list[float]:
+        data = self._post_json(
+            endpoint,
+            {
+                "model": model,
+                "prompt": text,
+            },
+        )
+
+        if "embedding" not in data:
+            raise ValueError("Legacy embeddings response missing 'embedding' field.")
+
+        return self._validate_vector(data["embedding"])
+
+    def _post_json(self, endpoint: str, payload: dict) -> dict:
+        body = json.dumps(payload).encode("utf-8")
+        req = Request(endpoint, data=body, headers={"Content-Type": "application/json"})
+        with urlopen(req, timeout=120) as resp:
+            return json.loads(resp.read().decode("utf-8"))
 
     def _is_valid_vector(self, vector: object) -> bool:
         if not isinstance(vector, list) or not vector:
