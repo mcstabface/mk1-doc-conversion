@@ -38,14 +38,20 @@ def render(config: AppConfig) -> None:
         st.session_state["ingestion_last_result"] = None
     if "ingestion_rechunk_summary" not in st.session_state:
         st.session_state["ingestion_rechunk_summary"] = None
+    if "ingestion_rechunk_batch_results" not in st.session_state:
+        st.session_state["ingestion_rechunk_batch_results"] = None
     if "ingestion_embedding_summary" not in st.session_state:
         st.session_state["ingestion_embedding_summary"] = None
     if "ingestion_workflow_stage" not in st.session_state:
         st.session_state["ingestion_workflow_stage"] = "ingest"
     if "ingestion_selected_search_context_path" not in st.session_state:
         st.session_state["ingestion_selected_search_context_path"] = ""
+    if "ingestion_selected_search_context_paths" not in st.session_state:
+        st.session_state["ingestion_selected_search_context_paths"] = []
     if "ingestion_selected_chunk_path" not in st.session_state:
         st.session_state["ingestion_selected_chunk_path"] = ""
+    if "ingestion_selected_chunk_paths" not in st.session_state:
+        st.session_state["ingestion_selected_chunk_paths"] = []
 
     source_root = st.text_input("Source root", value=str(config.default_source_root))
     artifact_root = st.text_input("Artifact root", value=str(config.artifact_root))
@@ -61,7 +67,7 @@ def render(config: AppConfig) -> None:
             **Without redaction**
             1. Run ingestion in `context` mode
             2. Review the ingestion result
-            3. Chunk the produced search-context artifact
+            3. Chunk one or more produced search-context artifacts
             4. Review the chunking result
             5. Generate embeddings
             6. Review the embedding result
@@ -92,14 +98,17 @@ def render(config: AppConfig) -> None:
             result = service.run_ingestion(request)
             st.session_state["ingestion_last_result"] = result
             st.session_state["ingestion_rechunk_summary"] = None
+            st.session_state["ingestion_rechunk_batch_results"] = None
             st.session_state["ingestion_embedding_summary"] = None
             st.session_state["ingestion_workflow_stage"] = "ingestion_result"
 
-            recent_search_context = _list_recent_search_context_files(artifact_root_path, limit=1)
+            recent_search_context = _list_recent_search_context_files(artifact_root_path, limit=25)
             st.session_state["ingestion_selected_search_context_path"] = (
                 recent_search_context[0] if recent_search_context else ""
             )
+            st.session_state["ingestion_selected_search_context_paths"] = recent_search_context[:5]
             st.session_state["ingestion_selected_chunk_path"] = ""
+            st.session_state["ingestion_selected_chunk_paths"] = []
 
         except Exception as exc:
             st.error(f"{type(exc).__name__}: {exc}")
@@ -194,101 +203,185 @@ def render(config: AppConfig) -> None:
         st.markdown("### Step 3 · Chunk artifacts")
 
         recent_search_context_files = _list_recent_search_context_files(artifact_root_path, limit=25)
-        search_context_options = [""] + recent_search_context_files
 
-        current_search_context_path = st.session_state["ingestion_selected_search_context_path"]
-        search_context_index = 0
-        if current_search_context_path in search_context_options:
-            search_context_index = search_context_options.index(current_search_context_path)
+        select_all_recent = st.checkbox("Select all recent search-context artifacts", value=False)
 
-        selected_recent_search_context = st.selectbox(
+        default_selected_paths = st.session_state["ingestion_selected_search_context_paths"]
+        if select_all_recent:
+            default_selected_paths = recent_search_context_files
+
+        selected_recent_search_contexts = st.multiselect(
             "Recent search-context artifacts",
-            search_context_options,
-            index=search_context_index,
-            format_func=lambda x: "Select a recent search-context artifact..." if x == "" else x,
+            recent_search_context_files,
+            default=default_selected_paths,
         )
 
-        search_context_artifact_path = st.text_input(
-            "Search-context artifact path",
-            value=current_search_context_path,
-            placeholder="Paste a search_context_document JSON path here",
+        manual_search_context_path = st.text_input(
+            "Additional search-context artifact path",
+            value="",
+            placeholder="Optional: paste one extra search_context_document JSON path here",
         )
 
-        if selected_recent_search_context:
-            search_context_artifact_path = selected_recent_search_context
+        effective_search_context_paths = list(selected_recent_search_contexts)
+        if manual_search_context_path.strip():
+            manual_path = str(Path(manual_search_context_path.strip()).resolve())
+            if manual_path not in effective_search_context_paths:
+                effective_search_context_paths.append(manual_path)
 
-        st.session_state["ingestion_selected_search_context_path"] = search_context_artifact_path
-
-        chunk_output_default = (
-            artifact_root_path / "chunks" / "manual_rechunk_output.chunks.json"
-        )
-        chunk_output_path = st.text_input(
-            "Chunk artifact output path",
-            value=str(chunk_output_default),
+        st.session_state["ingestion_selected_search_context_paths"] = effective_search_context_paths
+        st.session_state["ingestion_selected_search_context_path"] = (
+            effective_search_context_paths[0] if effective_search_context_paths else ""
         )
 
-        if st.button("Chunk artifact", width="stretch"):
-            if not search_context_artifact_path.strip():
-                st.error("Search-context artifact path is required.")
+        if effective_search_context_paths:
+            st.caption(f"Artifacts selected for chunking: {len(effective_search_context_paths)}")
+            st.dataframe(
+                [{"search_context_artifact_path": p} for p in effective_search_context_paths[:25]],
+                width="stretch",
+            )
+            if len(effective_search_context_paths) > 25:
+                st.caption("Showing first 25 selected search-context artifacts.")
+        else:
+            st.write("No search-context artifacts selected.")
+
+        chunk_output_dir = st.text_input(
+            "Chunk artifact output directory",
+            value=str(artifact_root_path / "chunks"),
+        )
+
+        if st.button("Chunk selected artifacts", width="stretch"):
+            if not effective_search_context_paths:
+                st.error("Select at least one search-context artifact.")
             else:
-                try:
-                    rechunk_summary = service.rechunk_search_context_artifact(
-                        artifact_path=Path(search_context_artifact_path).resolve(),
-                        output_path=Path(chunk_output_path).resolve(),
-                    )
-                    st.session_state["ingestion_rechunk_summary"] = rechunk_summary
-                    st.session_state["ingestion_embedding_summary"] = None
-                    st.session_state["ingestion_selected_chunk_path"] = rechunk_summary["chunk_artifact_path"]
-                    st.session_state["ingestion_workflow_stage"] = "chunk_result"
-                except Exception as exc:
-                    st.error(f"{type(exc).__name__}: {exc}")
+                batch_results = []
 
-    rechunk_summary = st.session_state["ingestion_rechunk_summary"]
-    if rechunk_summary is not None:
+                for artifact_path_str in effective_search_context_paths:
+                    try:
+                        artifact_path = Path(artifact_path_str).resolve()
+                        output_path = (
+                            Path(chunk_output_dir).resolve()
+                            / f"{artifact_path.stem}.chunks.json"
+                        )
+
+                        rechunk_summary = service.rechunk_search_context_artifact(
+                            artifact_path=artifact_path,
+                            output_path=output_path,
+                        )
+
+                        batch_results.append(
+                            {
+                                "search_context_artifact_path": artifact_path_str,
+                                "status": rechunk_summary["status"],
+                                "chunk_artifact_path": rechunk_summary["chunk_artifact_path"],
+                                "chunk_count": rechunk_summary["chunk_count"],
+                                "chunk_source_mode": rechunk_summary["chunk_source_mode"],
+                                "error": "",
+                            }
+                        )
+                    except Exception as exc:
+                        batch_results.append(
+                            {
+                                "search_context_artifact_path": artifact_path_str,
+                                "status": "FAILED",
+                                "chunk_artifact_path": "",
+                                "chunk_count": 0,
+                                "chunk_source_mode": "",
+                                "error": f"{type(exc).__name__}: {exc}",
+                            }
+                        )
+
+                st.session_state["ingestion_rechunk_batch_results"] = batch_results
+
+                successful_chunk_paths = [
+                    item["chunk_artifact_path"]
+                    for item in batch_results
+                    if item["status"] == "COMPLETE" and item["chunk_artifact_path"]
+                ]
+                st.session_state["ingestion_selected_chunk_paths"] = successful_chunk_paths
+                st.session_state["ingestion_selected_chunk_path"] = (
+                    successful_chunk_paths[0] if successful_chunk_paths else ""
+                )
+
+                if successful_chunk_paths:
+                    st.session_state["ingestion_rechunk_summary"] = {
+                        "status": "COMPLETE",
+                        "chunk_artifact_path": successful_chunk_paths[0],
+                        "chunk_count": len(successful_chunk_paths),
+                        "chunk_source_mode": "batch",
+                    }
+                else:
+                    st.session_state["ingestion_rechunk_summary"] = None
+
+                st.session_state["ingestion_embedding_summary"] = None
+                st.session_state["ingestion_workflow_stage"] = "chunk_result"
+
+    rechunk_batch_results = st.session_state["ingestion_rechunk_batch_results"]
+    if rechunk_batch_results is not None:
         st.markdown("### Step 4 · Chunking result")
-        st.success("Chunking complete.")
+
+        success_count = len([r for r in rechunk_batch_results if r["status"] == "COMPLETE"])
+        failure_count = len(rechunk_batch_results) - success_count
+
+        st.success("Chunking step complete.")
 
         c1, c2, c3 = st.columns(3)
-        c1.metric("Chunk status", str(rechunk_summary["status"]))
-        c2.metric("Chunk count", str(rechunk_summary["chunk_count"]))
-        c3.metric("Source mode", str(rechunk_summary["chunk_source_mode"]))
+        c1.metric("Artifacts attempted", str(len(rechunk_batch_results)))
+        c2.metric("Chunked", str(success_count))
+        c3.metric("Failed", str(failure_count))
 
-        st.write(f"Chunk artifact path: `{rechunk_summary['chunk_artifact_path']}`")
+        st.dataframe(rechunk_batch_results, width="stretch")
 
-        if st.button("Continue to embeddings", width="stretch"):
-            st.session_state["ingestion_workflow_stage"] = "embed"
+        if success_count > 0:
+            if st.button("Continue to embeddings", width="stretch"):
+                st.session_state["ingestion_workflow_stage"] = "embed"
 
     if (
-        rechunk_summary is not None
+        rechunk_batch_results is not None
         and st.session_state["ingestion_workflow_stage"] in {"embed", "embed_result"}
     ):
         st.markdown("### Step 5 · Generate embeddings")
 
         recent_chunk_files = _list_recent_chunk_files(artifact_root_path, limit=25)
-        chunk_options = [""] + recent_chunk_files
 
-        current_chunk_path = st.session_state["ingestion_selected_chunk_path"]
-        chunk_index = 0
-        if current_chunk_path in chunk_options:
-            chunk_index = chunk_options.index(current_chunk_path)
+        select_all_recent_chunks = st.checkbox("Select all recent chunk files", value=False)
 
-        selected_recent_chunk = st.selectbox(
+        default_chunk_paths = st.session_state["ingestion_selected_chunk_paths"]
+        if select_all_recent_chunks:
+            default_chunk_paths = recent_chunk_files
+
+        selected_recent_chunks = st.multiselect(
             "Recent chunk files",
-            chunk_options,
-            index=chunk_index,
-            format_func=lambda x: "Select a recent chunk file..." if x == "" else x,
+            recent_chunk_files,
+            default=default_chunk_paths,
         )
 
-        embedding_chunk_artifact_path = st.text_input(
-            "Chunk artifact path",
-            value=current_chunk_path,
-            placeholder="Paste a search_context_chunk_collection JSON path here",
+        manual_chunk_path = st.text_input(
+            "Additional chunk artifact path",
+            value="",
+            placeholder="Optional: paste one extra search_context_chunk_collection JSON path here",
         )
 
-        if selected_recent_chunk:
-            embedding_chunk_artifact_path = selected_recent_chunk
+        effective_chunk_paths = list(selected_recent_chunks)
+        if manual_chunk_path.strip():
+            manual_path = str(Path(manual_chunk_path.strip()).resolve())
+            if manual_path not in effective_chunk_paths:
+                effective_chunk_paths.append(manual_path)
 
-        st.session_state["ingestion_selected_chunk_path"] = embedding_chunk_artifact_path
+        st.session_state["ingestion_selected_chunk_paths"] = effective_chunk_paths
+        st.session_state["ingestion_selected_chunk_path"] = (
+            effective_chunk_paths[0] if effective_chunk_paths else ""
+        )
+
+        if effective_chunk_paths:
+            st.caption(f"Chunk artifacts selected for embedding: {len(effective_chunk_paths)}")
+            st.dataframe(
+                [{"chunk_artifact_path": p} for p in effective_chunk_paths[:25]],
+                width="stretch",
+            )
+            if len(effective_chunk_paths) > 25:
+                st.caption("Showing first 25 selected chunk artifacts.")
+        else:
+            st.write("No chunk artifacts selected.")
 
         embedding_output_dir = st.text_input(
             "Embedding output directory",
@@ -310,23 +403,43 @@ def render(config: AppConfig) -> None:
         )
 
         if st.button("Generate embeddings", width="stretch"):
-            effective_chunk_artifact_path = embedding_chunk_artifact_path.strip()
-
-            if not effective_chunk_artifact_path:
-                st.error("Chunk artifact path is required.")
+            if not effective_chunk_paths:
+                st.error("Select at least one chunk artifact.")
             else:
-                try:
-                    embedding_summary = service.generate_embeddings_for_chunk_artifact(
-                        chunk_artifact_path=Path(effective_chunk_artifact_path).resolve(),
-                        output_dir=Path(embedding_output_dir).resolve(),
-                        embedding_model=embedding_model,
-                        endpoint=embedding_endpoint,
-                        batch_size=int(embedding_batch_size),
-                    )
-                    st.session_state["ingestion_embedding_summary"] = embedding_summary
-                    st.session_state["ingestion_workflow_stage"] = "embed_result"
-                except Exception as exc:
-                    st.error(f"{type(exc).__name__}: {exc}")
+                all_artifact_paths = []
+                total_written = 0
+                total_skipped_valid = 0
+                failed = []
+
+                for chunk_artifact_path_str in effective_chunk_paths:
+                    try:
+                        embedding_summary = service.generate_embeddings_for_chunk_artifact(
+                            chunk_artifact_path=Path(chunk_artifact_path_str).resolve(),
+                            output_dir=Path(embedding_output_dir).resolve(),
+                            embedding_model=embedding_model,
+                            endpoint=embedding_endpoint,
+                            batch_size=int(embedding_batch_size),
+                        )
+                        total_written += int(embedding_summary.get("written_count", 0))
+                        total_skipped_valid += int(embedding_summary.get("skipped_valid_count", 0))
+                        all_artifact_paths.extend(embedding_summary.get("artifact_paths", []))
+                    except Exception as exc:
+                        failed.append(
+                            {
+                                "chunk_artifact_path": chunk_artifact_path_str,
+                                "error": f"{type(exc).__name__}: {exc}",
+                            }
+                        )
+
+                st.session_state["ingestion_embedding_summary"] = {
+                    "status": "COMPLETE" if not failed else "PARTIAL",
+                    "written_count": total_written,
+                    "skipped_valid_count": total_skipped_valid,
+                    "artifact_paths": all_artifact_paths,
+                    "failed": failed,
+                    "source_artifact_path": effective_chunk_paths[0] if effective_chunk_paths else "",
+                }
+                st.session_state["ingestion_workflow_stage"] = "embed_result"
 
     embedding_summary = st.session_state["ingestion_embedding_summary"]
     if embedding_summary is not None:
@@ -342,6 +455,11 @@ def render(config: AppConfig) -> None:
             f"Embedding source chunk artifact: "
             f"`{embedding_summary.get('source_artifact_path', '')}`"
         )
+
+        failed = embedding_summary.get("failed", [])
+        if failed:
+            st.markdown("#### Embedding failures")
+            st.dataframe(failed, width="stretch")
 
         artifact_paths = embedding_summary.get("artifact_paths", [])
         if artifact_paths:
