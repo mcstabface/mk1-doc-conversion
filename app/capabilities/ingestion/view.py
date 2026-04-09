@@ -133,6 +133,8 @@ def render(config: AppConfig) -> None:
             st.write("No recent runs found.")
 
     with st.expander("Post-processing: rechunk and embeddings", expanded=False):
+        st.markdown("#### Rechunk")
+
         artifact_input_path = st.text_input(
             "Search-context artifact path",
             value="",
@@ -153,7 +155,6 @@ def render(config: AppConfig) -> None:
                     artifact_path=Path(artifact_input_path).resolve(),
                     output_path=Path(chunk_output_path).resolve(),
                 )
-                st.session_state["ingestion_embedding_summary"] = None
             except Exception as exc:
                 st.error(f"{type(exc).__name__}: {exc}")
 
@@ -166,29 +167,44 @@ def render(config: AppConfig) -> None:
 
             st.write(f"Chunk artifact path: `{rechunk_summary['chunk_artifact_path']}`")
 
-            embedding_output_dir = st.text_input(
-                "Embedding output directory",
-                value=str(Path(artifact_root).resolve() / "embeddings"),
-            )
-            embedding_model = st.text_input(
-                "Embedding model",
-                value="nomic-embed-text",
-            )
-            embedding_endpoint = st.text_input(
-                "Embedding endpoint",
-                value="http://localhost:11434/api/embeddings",
-            )
-            embedding_batch_size = st.number_input(
-                "Embedding batch size",
-                min_value=1,
-                value=64,
-                step=1,
-            )
+        st.markdown("#### Generate embeddings")
 
-            if st.button("Generate embeddings", width="stretch"):
+        default_chunk_input = ""
+        if rechunk_summary is not None:
+            default_chunk_input = str(rechunk_summary["chunk_artifact_path"])
+
+        embedding_chunk_artifact_path = st.text_input(
+            "Chunk artifact path",
+            value=default_chunk_input,
+            placeholder="Paste a search_context_chunk_collection JSON path here",
+        )
+
+        embedding_output_dir = st.text_input(
+            "Embedding output directory",
+            value=str(Path(artifact_root).resolve() / "embeddings"),
+        )
+        embedding_model = st.text_input(
+            "Embedding model",
+            value="nomic-embed-text",
+        )
+        embedding_endpoint = st.text_input(
+            "Embedding endpoint",
+            value="http://localhost:11434/api/embeddings",
+        )
+        embedding_batch_size = st.number_input(
+            "Embedding batch size",
+            min_value=1,
+            value=64,
+            step=1,
+        )
+
+        if st.button("Generate embeddings", width="stretch"):
+            if not embedding_chunk_artifact_path.strip():
+                st.error("Chunk artifact path is required.")
+            else:
                 try:
                     st.session_state["ingestion_embedding_summary"] = service.generate_embeddings_for_chunk_artifact(
-                        chunk_artifact_path=Path(rechunk_summary["chunk_artifact_path"]).resolve(),
+                        chunk_artifact_path=Path(embedding_chunk_artifact_path).resolve(),
                         output_dir=Path(embedding_output_dir).resolve(),
                         embedding_model=embedding_model,
                         endpoint=embedding_endpoint,
