@@ -12,10 +12,9 @@ from experts.base_expert import BaseExpert
 
 class RedactionPlanExpert(BaseExpert):
     """
-    First-slice redaction planning expert.
+    Deterministic redaction planning expert.
 
     Scope:
-        - business_sensitive profile only
         - creates redaction_plan_runs row
         - creates redaction_plan_suggestions rows
         - reads active truth artifact first
@@ -24,71 +23,114 @@ class RedactionPlanExpert(BaseExpert):
     """
 
     PROFILE_BUSINESS_SENSITIVE = "business_sensitive"
+    PROFILE_IDENTITY_CONTACT = "identity_contact"
     PLAN_STATUS = "PLANNED"
 
-    # Deterministic replacement tokens
-    REPLACEMENTS = {
-        "CURRENCY_AMOUNT": "[CURRENCY_AMOUNT]",
-        "BANK_ACCOUNT": "[BANK_ACCOUNT]",
-        "ROUTING_NUMBER": "[ROUTING_NUMBER]",
-        "CREDIT_CARD": "[CREDIT_CARD]",
-        "IBAN": "[IBAN]",
-        "SWIFT_BIC": "[SWIFT_BIC]",
+    PROFILE_RULES: Dict[str, Dict[str, Any]] = {
+        PROFILE_BUSINESS_SENSITIVE: {
+            "ruleset_version": "business_sensitive_v1",
+            "ruleset_hash": "business_sensitive_v1",
+            "replacements": {
+                "CURRENCY_AMOUNT": "[CURRENCY_AMOUNT]",
+                "BANK_ACCOUNT": "[BANK_ACCOUNT]",
+                "ROUTING_NUMBER": "[ROUTING_NUMBER]",
+                "CREDIT_CARD": "[CREDIT_CARD]",
+                "IBAN": "[IBAN]",
+                "SWIFT_BIC": "[SWIFT_BIC]",
+            },
+            "rules": [
+                (
+                    "IBAN",
+                    "iban_v1",
+                    re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b"),
+                ),
+                (
+                    "SWIFT_BIC",
+                    "swift_bic_v3",
+                    re.compile(
+                        r"(?i)\b(?:swift|bic|swift/bic|bic/swift)\s*(?:code|no\.?|#)?\s*[:\-]?\s*([A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b"
+                    ),
+                ),
+                (
+                    "BANK_ACCOUNT",
+                    "bank_account_v2",
+                    re.compile(
+                        r"(?i)\b(?:account|acct|a/c)\s*(?:number|no\.?|#)?\s*[:\-]?\s*\d{6,17}\b"
+                    ),
+                ),
+                (
+                    "ROUTING_NUMBER",
+                    "routing_number_v2",
+                    re.compile(
+                        r"(?i)\b(?:routing|aba)\s*(?:number|no\.?|#)?\s*[:\-]?\s*\d{9}\b"
+                    ),
+                ),
+                (
+                    "CREDIT_CARD",
+                    "credit_card_v2",
+                    re.compile(
+                        r"(?i)\b(?:card|credit card|cc)\s*(?:number|no\.?|#)?\s*[:\-]?\s*(?:\d[ -]?){13,19}\b"
+                    ),
+                ),
+                (
+                    "CURRENCY_AMOUNT",
+                    "currency_amount_v2",
+                    re.compile(
+                        r"""
+                        (?:
+                            \$\s?(?:\d{1,3}(?:,\d{3})+|\d{3,})(?:\.\d{2})?
+                            |
+                            (?:USD|EUR|GBP)\s?(?:\d{1,3}(?:,\d{3})+|\d{3,})(?:\.\d{2})?
+                            |
+                            (?:\d{1,3}(?:,\d{3})+|\d{3,})(?:\.\d{2})?\s?(?:USD|EUR|GBP)
+                        )
+                        """,
+                        re.VERBOSE,
+                    ),
+                ),
+            ],
+        },
+        PROFILE_IDENTITY_CONTACT: {
+            "ruleset_version": "identity_contact_v1",
+            "ruleset_hash": "identity_contact_v1",
+            "replacements": {
+                "EMAIL": "[EMAIL]",
+                "PHONE_NUMBER": "[PHONE_NUMBER]",
+                "SSN": "[SSN]",
+                "DATE_OF_BIRTH": "[DATE_OF_BIRTH]",
+            },
+            "rules": [
+                (
+                    "EMAIL",
+                    "email_v1",
+                    re.compile(
+                        r"(?i)\b[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}\b"
+                    ),
+                ),
+                (
+                    "PHONE_NUMBER",
+                    "phone_number_v1",
+                    re.compile(
+                        r"(?i)\b(?:phone|mobile|cell|tel|telephone)\s*(?:number|no\.?|#)?\s*[:\-]?\s*(?:\+?1[\s.\-]?)?(?:\(?\d{3}\)?[\s.\-]?)\d{3}[\s.\-]?\d{4}\b"
+                    ),
+                ),
+                (
+                    "SSN",
+                    "ssn_v1",
+                    re.compile(
+                        r"(?i)\b(?:ssn|social security number)\s*(?:number|no\.?|#)?\s*[:\-]?\s*\d{3}-\d{2}-\d{4}\b"
+                    ),
+                ),
+                (
+                    "DATE_OF_BIRTH",
+                    "dob_v1",
+                    re.compile(
+                        r"(?i)\b(?:dob|date of birth)\s*[:\-]?\s*(?:0?[1-9]|1[0-2])[\/\-](?:0?[1-9]|[12][0-9]|3[01])[\/\-](?:19|20)\d{2}\b"
+                    ),
+                ),
+            ],
+        },
     }
-
-    # Deterministic rule order matters.
-    # These are best-effort v1 patterns for the first slice.
-    RULES: List[Tuple[str, str, re.Pattern[str]]] = [
-        (
-            "IBAN",
-            "iban_v1",
-            re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b"),
-        ),
-        (
-            "SWIFT_BIC",
-            "swift_bic_v3",
-            re.compile(
-                r"(?i)\b(?:swift|bic|swift/bic|bic/swift)\s*(?:code|no\.?|#)?\s*[:\-]?\s*([A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b"
-            ),
-        ),
-        (
-            "BANK_ACCOUNT",
-            "bank_account_v2",
-            re.compile(
-                r"(?i)\b(?:account|acct|a/c)\s*(?:number|no\.?|#)?\s*[:\-]?\s*\d{6,17}\b"
-            ),
-        ),
-        (
-            "ROUTING_NUMBER",
-            "routing_number_v2",
-            re.compile(
-                r"(?i)\b(?:routing|aba)\s*(?:number|no\.?|#)?\s*[:\-]?\s*\d{9}\b"
-            ),
-        ),
-        (
-            "CREDIT_CARD",
-            "credit_card_v2",
-            re.compile(
-                r"(?i)\b(?:card|credit card|cc)\s*(?:number|no\.?|#)?\s*[:\-]?\s*(?:\d[ -]?){13,19}\b"
-            ),
-        ),
-        (
-            "CURRENCY_AMOUNT",
-            "currency_amount_v2",
-            re.compile(
-                r"""
-                (?:
-                    \$\s?(?:\d{1,3}(?:,\d{3})+|\d{3,})(?:\.\d{2})?
-                    |
-                    (?:USD|EUR|GBP)\s?(?:\d{1,3}(?:,\d{3})+|\d{3,})(?:\.\d{2})?
-                    |
-                    (?:\d{1,3}(?:,\d{3})+|\d{3,})(?:\.\d{2})?\s?(?:USD|EUR|GBP)
-                )
-                """,
-                re.VERBOSE,
-            ),
-        ),
-    ]
 
     def __init__(self, db_path: str):
         self.db_path = db_path
@@ -112,11 +154,17 @@ class RedactionPlanExpert(BaseExpert):
         ruleset_hash = payload["ruleset_hash"]
         artifact_ids = payload["artifact_ids"]
 
-        if profile != self.PROFILE_BUSINESS_SENSITIVE:
+        profile_config = self.PROFILE_RULES.get(profile)
+        if profile_config is None:
             raise ValueError(
                 f"Unsupported profile '{profile}'. "
-                f"Only '{self.PROFILE_BUSINESS_SENSITIVE}' is supported in this slice."
+                f"Supported profiles: {sorted(self.PROFILE_RULES.keys())}"
             )
+
+        expected_ruleset_version = profile_config["ruleset_version"]
+        expected_ruleset_hash = profile_config["ruleset_hash"]
+        replacements = profile_config["replacements"]
+        rules = profile_config["rules"]
 
         if not isinstance(artifact_ids, list) or not artifact_ids:
             raise ValueError("artifact_ids must be a non-empty list.")
@@ -126,6 +174,18 @@ class RedactionPlanExpert(BaseExpert):
 
         if not ruleset_hash or not isinstance(ruleset_hash, str):
             raise ValueError("ruleset_hash must be a non-empty string.")
+
+        if ruleset_version != expected_ruleset_version:
+            raise ValueError(
+                f"ruleset_version '{ruleset_version}' does not match profile '{profile}' "
+                f"(expected '{expected_ruleset_version}')."
+            )
+
+        if ruleset_hash != expected_ruleset_hash:
+            raise ValueError(
+                f"ruleset_hash '{ruleset_hash}' does not match profile '{profile}' "
+                f"(expected '{expected_ruleset_hash}')."
+            )
 
         now_utc = int(time.time())
 
@@ -176,7 +236,7 @@ class RedactionPlanExpert(BaseExpert):
 
             suggestions_created = 0
             artifacts_planned = 0
-            category_counts = {category: 0 for category, _, _ in self.RULES}
+            category_counts = {category: 0 for category, _, _ in rules}
 
             for artifact_id in artifact_ids:
                 source_row = cursor.execute(
@@ -201,9 +261,6 @@ class RedactionPlanExpert(BaseExpert):
                 logical_path = source_row["logical_path"]
                 source_hash = source_row["sha256"]
 
-                logical_path = source_row["logical_path"]
-                source_hash = source_row["sha256"]
-
                 artifact_path = self._resolve_active_truth_artifact_path(
                     conn=conn,
                     physical_path=physical_path,
@@ -218,7 +275,11 @@ class RedactionPlanExpert(BaseExpert):
                     )
 
                 text = self._load_text_from_artifact(artifact_path)
-                matches = self._detect_business_sensitive(text)
+                matches = self._detect_matches(
+                    text=text,
+                    rules=rules,
+                    replacements=replacements,
+                )
 
                 seen_suggestion_keys = set()
 
@@ -293,14 +354,6 @@ class RedactionPlanExpert(BaseExpert):
         logical_path: str,
         source_hash: str,
     ) -> Optional[str]:
-        """
-        Resolve the current truth artifact for this source.
-
-        Order:
-            1) active redaction override
-            2) persisted search_context_document in registry
-        """
-
         override_row = conn.execute(
             """
             SELECT
@@ -407,7 +460,7 @@ class RedactionPlanExpert(BaseExpert):
 
         with open(path, "r", encoding="utf-8") as f:
             artifact = json.load(f)
-        
+
         artifact_type = artifact.get("artifact_type")
         if artifact_type != "search_context_document":
             raise RuntimeError(
@@ -427,23 +480,17 @@ class RedactionPlanExpert(BaseExpert):
 
         return text
 
-    def _detect_business_sensitive(
+    def _detect_matches(
         self,
+        *,
         text: str,
+        rules: List[Tuple[str, str, re.Pattern[str]]],
+        replacements: Dict[str, str],
     ) -> List[Tuple[str, str, str, str]]:
-        """
-        Returns deterministic, non-overlapping matches:
-
-            [
-                (category, rule_id, original_text, replacement_text),
-                ...
-            ]
-        """
-
         raw_matches: List[Tuple[int, int, int, str, str, str, str]] = []
         # (start, end, rule_order, category, rule_id, original_text, replacement)
 
-        for rule_order, (category, rule_id, pattern) in enumerate(self.RULES):
+        for rule_order, (category, rule_id, pattern) in enumerate(rules):
             for match in pattern.finditer(text):
                 start, end = match.span()
                 original_text = match.group(0)
@@ -459,7 +506,7 @@ class RedactionPlanExpert(BaseExpert):
                         category,
                         rule_id,
                         original_text,
-                        self.REPLACEMENTS[category],
+                        replacements[category],
                     )
                 )
 
@@ -480,7 +527,6 @@ class RedactionPlanExpert(BaseExpert):
                 continue
 
             seen_spans = set()
-
             seen_spans.add(span_key)
             accepted.append(item)
             last_end = end

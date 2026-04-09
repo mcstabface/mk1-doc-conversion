@@ -114,9 +114,23 @@ def render(config: AppConfig) -> None:
         width="stretch",
     )
 
-    profile = st.selectbox("Profile", ["business_sensitive"], index=0)
-    ruleset_version = st.text_input("Ruleset version", value="business_sensitive_v1")
-    ruleset_hash = st.text_input("Ruleset hash", value="business_sensitive_v1")
+    profile_options = {
+        "business_sensitive": {
+            "ruleset_version": "business_sensitive_v1",
+            "ruleset_hash": "business_sensitive_v1",
+        },
+        "identity_contact": {
+            "ruleset_version": "identity_contact_v1",
+            "ruleset_hash": "identity_contact_v1",
+        },
+    }
+
+    profile = st.selectbox("Profile", list(profile_options.keys()), index=0)
+    ruleset_version = profile_options[profile]["ruleset_version"]
+    ruleset_hash = profile_options[profile]["ruleset_hash"]
+
+    st.text_input("Ruleset version", value=ruleset_version, disabled=True)
+    st.text_input("Ruleset hash", value=ruleset_hash, disabled=True)
 
     if "redaction_plan_summary" not in st.session_state:
         st.session_state["redaction_plan_summary"] = None
