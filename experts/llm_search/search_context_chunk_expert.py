@@ -50,9 +50,15 @@ class SearchContextChunkExpert(BaseExpert):
                 "'source_path', 'logical_path', and 'source_hash'."
             )
 
-        chunking = doc.get("chunking", {})
-        target_chars = int(chunking.get("target_chars", self.DEFAULT_TARGET_CHARS))
-        overlap_chars = int(chunking.get("overlap_chars", self.DEFAULT_OVERLAP_CHARS))
+        metadata = doc.get("metadata", {})
+        chunking_metadata = metadata.get("chunking", {})
+
+        target_chars = int(
+            chunking_metadata.get("target_chars", self.DEFAULT_TARGET_CHARS)
+        )
+        overlap_chars = int(
+            chunking_metadata.get("overlap_chars", self.DEFAULT_OVERLAP_CHARS)
+        )
 
         if target_chars <= 0:
             raise ValueError("target_chars must be > 0.")
@@ -61,7 +67,7 @@ class SearchContextChunkExpert(BaseExpert):
         if overlap_chars >= target_chars:
             raise ValueError("overlap_chars must be smaller than target_chars.")
 
-        normalized_chunks = self._normalize_chunks(
+        normalized_chunks, chunk_source_mode = self._normalize_chunks(
             doc=doc,
             logical_path=logical_path,
             source_hash=source_hash,
@@ -71,6 +77,27 @@ class SearchContextChunkExpert(BaseExpert):
 
         now_utc = int(datetime.now(timezone.utc).timestamp())
         run_id = payload.get("search_context_document", {}).get("run_id")
+
+        result_chunking = {
+            "strategy": "document_chunks_to_search_context_chunks",
+            "chunk_count": len(normalized_chunks),
+            "target_chars": target_chars,
+            "overlap_chars": overlap_chars,
+            "chunk_source_mode": chunk_source_mode,
+        }
+
+        redaction_metadata = metadata.get("redaction")
+        redaction_provenance = metadata.get("redaction_provenance")
+        source_chunking = metadata.get("source_chunking")
+
+        if redaction_metadata is not None:
+            result_chunking["redaction_present"] = True
+        if source_chunking is not None:
+            result_chunking["source_chunking"] = source_chunking
+        if chunking_metadata.get("status") is not None:
+            result_chunking["source_chunking_status"] = chunking_metadata.get("status")
+        if chunking_metadata.get("reason") is not None:
+            result_chunking["source_chunking_reason"] = chunking_metadata.get("reason")
 
         result = {
             "search_context_chunks": {
@@ -85,13 +112,16 @@ class SearchContextChunkExpert(BaseExpert):
                     "logical_path": logical_path,
                     "source_hash": source_hash,
                 },
-                "chunking": {
-                    "strategy": "document_chunks_to_search_context_chunks",
-                    "chunk_count": len(normalized_chunks),
-                },
+                "chunking": result_chunking,
                 "chunks": normalized_chunks,
             }
         }
+
+        if redaction_metadata is not None:
+            result["search_context_chunks"]["redaction"] = redaction_metadata
+        if redaction_provenance is not None:
+            result["search_context_chunks"]["redaction_provenance"] = redaction_provenance
+
         return result
 
     def _normalize_chunks(
@@ -101,11 +131,36 @@ class SearchContextChunkExpert(BaseExpert):
         source_hash: str,
         target_chars: int,
         overlap_chars: int,
-    ) -> List[Dict[str, Any]]:
+    ) -> tuple[List[Dict[str, Any]], str]:
 
+        metadata = doc.get("metadata", {})
+        chunking_metadata = metadata.get("chunking", {})
         input_chunks = doc.get("chunks", [])
+
+        requires_rechunk = chunking_metadata.get("status") == "REQUIRES_RECHUNK"
+
+        if requires_rechunk:
+            normalized = self._chunk_from_text_content(
+                doc=doc,
+                logical_path=logical_path,
+                source_hash=source_hash,
+                target_chars=target_chars,
+                overlap_chars=overlap_chars,
+            )
+            return normalized, "text_content_rechunk"
+
         if not isinstance(input_chunks, list):
             raise ValueError("search_context_document.chunks must be a list.")
+
+        if not input_chunks:
+            normalized = self._chunk_from_text_content(
+                doc=doc,
+                logical_path=logical_path,
+                source_hash=source_hash,
+                target_chars=target_chars,
+                overlap_chars=overlap_chars,
+            )
+            return normalized, "text_content_fallback"
 
         normalized: List[Dict[str, Any]] = []
         chunk_index = 0
@@ -122,7 +177,6 @@ class SearchContextChunkExpert(BaseExpert):
 
             text_len = len(text)
 
-            # Split oversized chunks
             start = 0
             while start < text_len:
                 end = min(start + target_chars, text_len)
@@ -159,6 +213,69 @@ class SearchContextChunkExpert(BaseExpert):
                     break
 
                 start = end - overlap_chars
+
+        chunk_count = len(normalized)
+
+        for chunk in normalized:
+            chunk["chunk_count"] = chunk_count
+
+        return normalized, "document_chunks"
+
+    def _chunk_from_text_content(
+        self,
+        *,
+        doc: Dict[str, Any],
+        logical_path: str,
+        source_hash: str,
+        target_chars: int,
+        overlap_chars: int,
+    ) -> List[Dict[str, Any]]:
+        text = doc.get("text_content")
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError(
+                "search_context_document.text_content must be a non-empty string "
+                "when rechunking from redacted truth."
+            )
+
+        normalized: List[Dict[str, Any]] = []
+        chunk_index = 0
+        text_len = len(text)
+        start = 0
+
+        while start < text_len:
+            end = min(start + target_chars, text_len)
+            chunk_text = text[start:end]
+            text_hash = hashlib.sha256(chunk_text.encode("utf-8")).hexdigest()
+
+            normalized.append(
+                {
+                    "chunk_id": f"{logical_path}::{source_hash}::{chunk_index:04d}",
+                    "chunk_index": chunk_index,
+                    "logical_path": logical_path,
+                    "source_path": doc.get("source", {}).get("source_path"),
+                    "document_hash": source_hash,
+                    "text": chunk_text,
+                    "text_hash": text_hash,
+                    "token_count": max(1, len(chunk_text) // 4),
+                    "content": {
+                        "text": chunk_text,
+                        "char_count": len(chunk_text),
+                        "token_estimate": max(1, len(chunk_text) // 4),
+                    },
+                    "position": {
+                        "start_char": start,
+                        "end_char": end,
+                    },
+                    "embedding_ready": True,
+                }
+            )
+
+            chunk_index += 1
+
+            if end == text_len:
+                break
+
+            start = end - overlap_chars
 
         chunk_count = len(normalized)
 
