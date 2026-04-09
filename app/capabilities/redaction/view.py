@@ -229,7 +229,6 @@ def render(config: AppConfig) -> None:
                 "Preview text",
                 value=text_content[:2000],
                 height=300,
-                disabled=True,
                 label_visibility="collapsed",
             )
 
