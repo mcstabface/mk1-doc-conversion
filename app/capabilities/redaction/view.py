@@ -389,6 +389,15 @@ def render(config: AppConfig) -> None:
                     "Batch commit is available below for this approved multi-artifact plan."
                 )
 
+                commit_artifact_ids = service.list_artifact_ids_with_suggestions_for_plan(
+                    plan.plan_id
+                )
+
+                st.caption(
+                    f"Artifacts selected in plan: {len(planned_ids)} | "
+                    f"Artifacts with redaction suggestions: {len(commit_artifact_ids)}"
+                )
+
                 batch_output_root = st.text_input(
                     "Batch commit output directory",
                     value=str(service.db_path.parent.parent / "redacted"),
@@ -396,7 +405,7 @@ def render(config: AppConfig) -> None:
 
                 if st.button("Commit all artifacts in approved plan", width="stretch"):
                     st.session_state["redaction_batch_commit_results"] = service.commit_batch(
-                        artifact_ids=planned_ids,
+                        artifact_ids=commit_artifact_ids,
                         profile=plan.profile,
                         ruleset_version=plan.ruleset_version,
                         ruleset_hash=plan.ruleset_hash,

@@ -187,6 +187,9 @@ class RedactionService:
             limit=limit,
         )
 
+    def list_artifact_ids_with_suggestions_for_plan(self, plan_id: int) -> list[int]:
+        return self.repo.list_artifact_ids_with_suggestions_for_plan(plan_id)
+
     def get_truth_override_state(self, source_artifact_id: int) -> dict | None:
         return self.repo.get_truth_override_for_source(source_artifact_id)
 

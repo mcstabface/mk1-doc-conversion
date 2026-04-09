@@ -264,3 +264,17 @@ class RedactionRepository:
                 history.append(row_dict)
 
             return history
+
+    def list_artifact_ids_with_suggestions_for_plan(self, plan_id: int) -> list[int]:
+        with sqlite3.connect(self.db_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT DISTINCT artifact_id
+                FROM redaction_plan_suggestions
+                WHERE plan_id = ?
+                ORDER BY artifact_id ASC
+                """,
+                (plan_id,),
+            ).fetchall()
+
+            return [int(row[0]) for row in rows]
