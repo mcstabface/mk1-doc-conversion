@@ -37,6 +37,7 @@ def render(config: AppConfig) -> None:
     elif st.session_state["redaction_selected_run_id"] != run_id:
         st.session_state["redaction_selected_run_id"] = run_id
         st.session_state["redaction_plan_summary"] = None
+        st.session_state["redaction_planned_artifact_id"] = None
         st.session_state["redaction_approval_summary"] = None
         st.session_state["redaction_preview_summary"] = None
         st.session_state["redaction_commit_summary"] = None
@@ -119,6 +120,8 @@ def render(config: AppConfig) -> None:
 
     if "redaction_plan_summary" not in st.session_state:
         st.session_state["redaction_plan_summary"] = None
+    if "redaction_planned_artifact_id" not in st.session_state:
+        st.session_state["redaction_planned_artifact_id"] = None
     if "redaction_approval_summary" not in st.session_state:
         st.session_state["redaction_approval_summary"] = None
     if "redaction_preview_summary" not in st.session_state:
@@ -137,6 +140,7 @@ def render(config: AppConfig) -> None:
             )
         )
         st.session_state["redaction_plan_summary"] = plan
+        st.session_state["redaction_planned_artifact_id"] = selected_artifact_id
         st.session_state["redaction_approval_summary"] = None
         st.session_state["redaction_preview_summary"] = None
         st.session_state["redaction_commit_summary"] = None
@@ -165,7 +169,7 @@ def render(config: AppConfig) -> None:
             value=False,
         )
 
-        if st.button("Record approval", width="stretch"):
+        if st.button("Approve plan and enable preview", width="stretch"):
             if not approval_confirm:
                 st.error("Approval confirmation is required.")
             else:
@@ -188,7 +192,11 @@ def render(config: AppConfig) -> None:
         c2.metric("Plan ID", str(approval.plan_id))
         c3.metric("Status", approval.status)
 
-        source_artifact_id = selected_artifact_id
+        source_artifact_id = st.session_state["redaction_planned_artifact_id"]
+
+        if source_artifact_id is None:
+            st.error("No planned artifact is bound to the current plan.")
+            return
 
         if st.button("Generate preview", width="stretch"):
             preview = service.get_preview(
