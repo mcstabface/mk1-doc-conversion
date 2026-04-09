@@ -15,15 +15,21 @@ def main() -> None:
 
     enabled = [c for c in capabilities if c.enabled_by_default]
     labels = {c.label: c for c in enabled}
+    label_names = list(labels.keys())
+
+    pending_label = st.session_state.pop("pending_capability_label", None)
+    if pending_label in labels:
+        st.session_state["selected_capability_label"] = pending_label
 
     default_label = st.session_state.get("selected_capability_label")
     if default_label not in labels:
-        default_label = list(labels.keys())[0]
+        default_label = label_names[0]
+        st.session_state["selected_capability_label"] = default_label
 
     selected_label = st.sidebar.radio(
         "Capabilities",
-        list(labels.keys()),
-        index=list(labels.keys()).index(default_label),
+        label_names,
+        index=label_names.index(default_label),
         key="selected_capability_label",
     )
     selected = labels[selected_label]

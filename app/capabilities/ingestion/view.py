@@ -224,7 +224,7 @@ def render(config: AppConfig) -> None:
 
             with next_col_2:
                 if st.button("Go to PII Redaction next", width="stretch"):
-                    st.session_state["selected_capability_label"] = "PII Redaction"
+                    st.session_state["pending_capability_label"] = "PII Redaction"
                     st.session_state["redaction_prefill_run_id"] = summary.run_id
                     st.rerun()
 
