@@ -14,6 +14,13 @@ from app.contracts.redaction import (
 from app.services.redaction_service import RedactionService
 
 
+def _format_run_label(run: dict) -> str:
+    run_id = run.get("run_id", "")
+    status = run.get("status", "")
+    source_root = run.get("source_root", "")
+    return f"run {run_id} | {status} | {source_root}"
+
+
 def render(config: AppConfig) -> None:
     st.subheader("PII Redaction")
 

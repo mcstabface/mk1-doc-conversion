@@ -18,22 +18,23 @@ def main() -> None:
     label_names = list(labels.keys())
 
     pending_label = st.session_state.pop("pending_capability_label", None)
-    if pending_label in labels:
-        st.session_state["selected_capability_label"] = pending_label
+    current_label = st.session_state.get("selected_capability_label")
 
-    default_label = st.session_state.get("selected_capability_label")
-    if default_label not in labels:
+    if pending_label in labels:
+        default_label = pending_label
+    elif current_label in labels:
+        default_label = current_label
+    else:
         default_label = label_names[0]
-        st.session_state["selected_capability_label"] = default_label
 
     selected_label = st.sidebar.radio(
         "Capabilities",
         label_names,
         index=label_names.index(default_label),
-        key="selected_capability_label",
     )
-    selected = labels[selected_label]
+    st.session_state["selected_capability_label"] = selected_label
 
+    selected = labels[selected_label]
     st.sidebar.caption(selected.description)
 
     if selected.capability_id == "ingestion":
