@@ -354,25 +354,17 @@ def render(config: AppConfig) -> None:
                 width="stretch",
             )
 
-            approval_confirm = st.checkbox(
-                "I approve this redaction plan for preview/commit.",
-                value=False,
-            )
-
-            if st.button("Approve plan and enable preview", width="stretch"):
-                if not approval_confirm:
-                    st.error("Approval confirmation is required.")
-                else:
-                    approval = service.record_approval(
-                        RedactionApprovalRequest(
-                            plan_id=plan.plan_id,
-                            approval_flags={"approved_in_app": True},
-                        )
+            if st.button("Approve plan", width="stretch"):
+                approval = service.record_approval(
+                    RedactionApprovalRequest(
+                        plan_id=plan.plan_id,
+                        approval_flags={"approved_in_app": True},
                     )
-                    st.session_state["redaction_approval_summary"] = approval
-                    st.session_state["redaction_preview_summary"] = None
-                    st.session_state["redaction_commit_summary"] = None
-                    st.session_state["redaction_batch_commit_results"] = None
+                )
+                st.session_state["redaction_approval_summary"] = approval
+                st.session_state["redaction_preview_summary"] = None
+                st.session_state["redaction_commit_summary"] = None
+                st.session_state["redaction_batch_commit_results"] = None
 
     approval = st.session_state["redaction_approval_summary"]
     if approval is not None:
