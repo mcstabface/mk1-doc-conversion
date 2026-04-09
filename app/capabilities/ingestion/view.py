@@ -224,10 +224,9 @@ def render(config: AppConfig) -> None:
 
             with next_col_2:
                 if st.button("Go to PII Redaction next", width="stretch"):
-                    st.info(
-                        "Switch to the PII Redaction tab in the left navigation to continue "
-                        "with plan, preview, and commit."
-                    )
+                    st.session_state["selected_capability_label"] = "PII Redaction"
+                    st.session_state["redaction_prefill_run_id"] = summary.run_id
+                    st.rerun()
 
     if (
         result is not None

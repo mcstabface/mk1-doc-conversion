@@ -25,11 +25,31 @@ def render(config: AppConfig) -> None:
         return
 
     run_options = {
-        f"run {r['run_id']} | {r['status']} | {r.get('source_root', '')}": r
-        for r in runs
+        _format_run_label(run): run
+        for run in runs
     }
 
-    selected_run_label = st.selectbox("Select run", list(run_options.keys()))
+    prefill_run_id = st.session_state.get("redaction_prefill_run_id")
+    default_run_label = None
+    if prefill_run_id is not None:
+        for label, run in run_options.items():
+            if int(run["run_id"]) == int(prefill_run_id):
+                default_run_label = label
+                break
+
+    run_labels = list(run_options.keys())
+    default_index = 0
+    if default_run_label in run_labels:
+        default_index = run_labels.index(default_run_label)
+
+    selected_run_label = st.selectbox(
+        "Select run",
+        run_labels,
+        index=default_index,
+    )
+
+    if prefill_run_id is not None:
+        st.session_state["redaction_prefill_run_id"] = None
     selected_run = run_options[selected_run_label]
     run_id = int(selected_run["run_id"])
 
