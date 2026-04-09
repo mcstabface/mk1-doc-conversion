@@ -53,9 +53,6 @@ class EmbeddingChunkExpert:
         if not isinstance(chunks, list):
             raise ValueError("Chunk collection artifact has non-list 'chunks' field.")
 
-        if len(chunks) == 0:
-            raise ValueError("Chunk collection artifact has empty 'chunks' list.")
-
         written_paths: list[str] = []
         skipped_valid_count = 0
         embeddable_chunk_count = 0
@@ -77,20 +74,20 @@ class EmbeddingChunkExpert:
             safe_model = re.sub(r"[^A-Za-z0-9._-]+", "_", model)
 
             artifact_path = output_dir / f"{safe_chunk_id}.{safe_model}.embedding.json"
-
             text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
 
             if artifact_path.exists():
                 try:
                     existing = json.loads(artifact_path.read_text(encoding="utf-8"))
+                    existing_vector = existing.get("vector")
 
                     if (
                         existing.get("text_hash") == text_hash
                         and existing.get("embedding_model") == model
+                        and self._is_valid_vector(existing_vector)
                     ):
                         skipped_valid_count += 1
                         continue
-
                 except Exception:
                     pass
 
@@ -117,6 +114,8 @@ class EmbeddingChunkExpert:
             now_utc = int(datetime.now(timezone.utc).timestamp())
 
             for item, vector in zip(batch, vectors):
+                validated_vector = self._validate_vector(vector)
+
                 embedding_artifact = {
                     "artifact_type": "embedding_artifact",
                     "schema_version": "embedding_artifact_v1",
@@ -130,8 +129,8 @@ class EmbeddingChunkExpert:
                     "text_hash": item["text_hash"],
                     "embedding_model": model,
                     "batch_size": batch_size,
-                    "embedding_dim": len(vector),
-                    "vector": vector,
+                    "embedding_dim": len(validated_vector),
+                    "vector": validated_vector,
                     "source_path": source.get("source_path"),
                 }
 
@@ -181,7 +180,7 @@ class EmbeddingChunkExpert:
             raise ValueError("Embedding response field is not a list.")
 
         if len(embeddings) == len(texts):
-            return embeddings
+            return [self._validate_vector(vector) for vector in embeddings]
 
         return self._embed_one_by_one(endpoint, model, texts)
 
@@ -206,6 +205,23 @@ class EmbeddingChunkExpert:
                     f"Per-item embedding fallback expected 1 vector, got {len(embeddings) if isinstance(embeddings, list) else 'non-list'}."
                 )
 
-            vectors.append(embeddings[0])
+            vectors.append(self._validate_vector(embeddings[0]))
 
         return vectors
+
+    def _is_valid_vector(self, vector: object) -> bool:
+        if not isinstance(vector, list) or not vector:
+            return False
+        return all(isinstance(x, (int, float)) for x in vector)
+
+    def _validate_vector(self, vector: object) -> list[float]:
+        if not isinstance(vector, list):
+            raise ValueError("Embedding vector must be a list.")
+
+        if not vector:
+            raise ValueError("Embedding vector is empty.")
+
+        if not all(isinstance(x, (int, float)) for x in vector):
+            raise ValueError("Embedding vector must contain only numeric values.")
+
+        return [float(x) for x in vector]
