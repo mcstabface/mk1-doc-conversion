@@ -124,6 +124,16 @@ class RedactionService:
 
         return self.repo.list_runs(limit=limit)
 
+    def list_plan_history_for_source_artifact(
+        self,
+        source_artifact_id: int,
+        limit: int = 20,
+    ) -> list[dict]:
+        return self.repo.list_plan_history_for_source_artifact(
+            source_artifact_id=source_artifact_id,
+            limit=limit,
+        )
+
     def get_truth_override_state(self, source_artifact_id: int) -> dict | None:
         return self.repo.get_truth_override_for_source(source_artifact_id)
 

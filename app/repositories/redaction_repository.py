@@ -191,3 +191,76 @@ class RedactionRepository:
                 candidates.append(item)
 
         return candidates
+
+    def list_plan_history_for_source_artifact(
+        self,
+        source_artifact_id: int,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT
+                    p.plan_id,
+                    p.run_id,
+                    p.profile,
+                    p.ruleset_version,
+                    p.ruleset_hash,
+                    p.status AS plan_status,
+                    p.created_utc AS plan_created_utc,
+                    COUNT(s.suggestion_id) AS suggestions_created,
+                    MAX(a.approval_id) AS approval_id,
+                    MAX(a.approved_utc) AS approved_utc,
+                    MAX(r.redacted_artifact_id) AS redacted_artifact_id,
+                    MAX(r.artifact_path) AS redacted_artifact_path,
+                    MAX(r.created_utc) AS committed_utc
+                FROM redaction_plan_runs p
+                JOIN redaction_plan_suggestions s
+                    ON s.plan_id = p.plan_id
+                LEFT JOIN redaction_approvals a
+                    ON a.plan_id = p.plan_id
+                LEFT JOIN redacted_artifacts r
+                    ON r.plan_id = p.plan_id
+                    AND r.source_artifact_id = s.artifact_id
+                WHERE s.artifact_id = ?
+                GROUP BY
+                    p.plan_id,
+                    p.run_id,
+                    p.profile,
+                    p.ruleset_version,
+                    p.ruleset_hash,
+                    p.status,
+                    p.created_utc
+                ORDER BY p.plan_id DESC
+                LIMIT ?
+                """,
+                (source_artifact_id, limit),
+            ).fetchall()
+
+            history: list[dict[str, Any]] = []
+            for row in rows:
+                row_dict = dict(row)
+
+                category_rows = conn.execute(
+                    """
+                    SELECT
+                        category,
+                        COUNT(*) AS count
+                    FROM redaction_plan_suggestions
+                    WHERE plan_id = ?
+                      AND artifact_id = ?
+                    GROUP BY category
+                    ORDER BY category
+                    """,
+                    (row_dict["plan_id"], source_artifact_id),
+                ).fetchall()
+
+                row_dict["category_counts"] = {
+                    category_row["category"]: category_row["count"]
+                    for category_row in category_rows
+                }
+
+                history.append(row_dict)
+
+            return history
