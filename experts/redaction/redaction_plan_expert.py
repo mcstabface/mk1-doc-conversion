@@ -220,7 +220,21 @@ class RedactionPlanExpert(BaseExpert):
                 text = self._load_text_from_artifact(artifact_path)
                 matches = self._detect_business_sensitive(text)
 
+                seen_suggestion_keys = set()
+
                 for category, rule_id, original_text, replacement_text in matches:
+                    suggestion_key = (
+                        category,
+                        original_text,
+                        replacement_text,
+                        rule_id,
+                    )
+
+                    if suggestion_key in seen_suggestion_keys:
+                        continue
+
+                    seen_suggestion_keys.add(suggestion_key)
+
                     cursor.execute(
                         """
                         INSERT INTO redaction_plan_suggestions (
