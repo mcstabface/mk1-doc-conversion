@@ -398,6 +398,16 @@ def render(config: AppConfig) -> None:
                     f"Artifacts with redaction suggestions: {len(commit_artifact_ids)}"
                 )
 
+                if not commit_artifact_ids:
+                    st.info(
+                        "This approved plan currently has no artifacts with redaction "
+                        "suggestions to commit. This usually means the corpus is already "
+                        "redacted for this profile/ruleset, or the selected artifacts did "
+                        "not produce any matches."
+                    )
+                    st.session_state["redaction_batch_commit_results"] = None
+                    return
+
                 batch_output_root = st.text_input(
                     "Batch commit output directory",
                     value=str(service.db_path.parent.parent / "redacted"),
