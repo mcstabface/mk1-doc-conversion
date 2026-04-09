@@ -67,7 +67,7 @@ class EmbeddingChunkExpert:
                 or chunk.get("text")
                 or ""
             ).strip()
-            
+
             if not text:
                 continue
             embeddable_chunk_count += 1
@@ -79,8 +79,6 @@ class EmbeddingChunkExpert:
             artifact_path = output_dir / f"{safe_chunk_id}.{safe_model}.embedding.json"
 
             text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-            # ---- incremental check ----
 
             if artifact_path.exists():
                 try:
@@ -175,7 +173,6 @@ class EmbeddingChunkExpert:
         if "embeddings" in data:
             embeddings = data["embeddings"]
         elif "embedding" in data:
-            # Defensive fallback for single-item responses.
             embeddings = [data["embedding"]]
         else:
             raise ValueError("Embedding response missing 'embeddings'/'embedding' field.")
@@ -183,4 +180,32 @@ class EmbeddingChunkExpert:
         if not isinstance(embeddings, list):
             raise ValueError("Embedding response field is not a list.")
 
-        return embeddings
+        if len(embeddings) == len(texts):
+            return embeddings
+
+        return self._embed_one_by_one(endpoint, model, texts)
+
+    def _embed_one_by_one(self, endpoint: str, model: str, texts: list[str]) -> list[list[float]]:
+        vectors: list[list[float]] = []
+
+        for text in texts:
+            body = json.dumps({"model": model, "input": [text]}).encode("utf-8")
+            req = Request(endpoint, data=body, headers={"Content-Type": "application/json"})
+            with urlopen(req, timeout=120) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+
+            if "embeddings" in data:
+                embeddings = data["embeddings"]
+            elif "embedding" in data:
+                embeddings = [data["embedding"]]
+            else:
+                raise ValueError("Embedding response missing 'embeddings'/'embedding' field.")
+
+            if not isinstance(embeddings, list) or len(embeddings) != 1:
+                raise ValueError(
+                    f"Per-item embedding fallback expected 1 vector, got {len(embeddings) if isinstance(embeddings, list) else 'non-list'}."
+                )
+
+            vectors.append(embeddings[0])
+
+        return vectors
