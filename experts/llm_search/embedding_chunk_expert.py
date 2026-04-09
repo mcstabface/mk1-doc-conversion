@@ -28,6 +28,9 @@ class EmbeddingChunkExpert:
         source_hash = source.get("source_hash") or artifact.get("document_hash")
         logical_path = source.get("logical_path") or artifact.get("logical_path")
         run_id = artifact.get("run_id")
+        redaction = artifact.get("redaction")
+        redaction_provenance = artifact.get("redaction_provenance")
+        chunking = artifact.get("chunking")
 
         if "chunks" not in artifact:
             raise ValueError("Chunk collection artifact missing 'chunks' field.")
@@ -133,6 +136,15 @@ class EmbeddingChunkExpert:
                     "vector": vector,
                     "source_path": source.get("source_path"),
                 }
+
+                if chunking is not None:
+                    embedding_artifact["chunking"] = chunking
+
+                if redaction is not None:
+                    embedding_artifact["redaction"] = redaction
+
+                if redaction_provenance is not None:
+                    embedding_artifact["redaction_provenance"] = redaction_provenance
 
                 write_validated_artifact(item["artifact_path"], embedding_artifact)
                 written_paths.append(str(item["artifact_path"]))
