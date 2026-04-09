@@ -292,9 +292,23 @@ class RedactionCommitExpert(BaseExpert):
 
         override_row = cursor.execute(
             """
-            SELECT active_artifact_path
-            FROM artifact_truth_overrides
-            WHERE source_artifact_id = ?
+            SELECT
+                o.active_artifact_path,
+                o.active_artifact_hash,
+                o.created_utc AS previous_override_created_utc,
+                o.redacted_artifact_id AS previous_override_redacted_artifact_id,
+                r.profile AS previous_override_profile,
+                r.plan_id AS previous_override_plan_id,
+                r.approval_id AS previous_override_approval_id,
+                r.ruleset_version AS previous_override_ruleset_version,
+                r.ruleset_hash AS previous_override_ruleset_hash,
+                r.artifact_path AS previous_override_artifact_path,
+                r.artifact_hash AS previous_override_artifact_hash,
+                r.created_utc AS previous_override_redacted_created_utc
+            FROM artifact_truth_overrides o
+            LEFT JOIN redacted_artifacts r
+                ON r.redacted_artifact_id = o.redacted_artifact_id
+            WHERE o.source_artifact_id = ?
             """,
             (source_artifact_id,),
         ).fetchone()
@@ -431,6 +445,74 @@ class RedactionCommitExpert(BaseExpert):
             "source_truth_producer_expert": artifact.get("producer_expert"),
             "source_truth_created_utc": artifact.get("created_utc"),
             "source_truth_status": artifact.get("status"),
+            "lineage_source": (
+                "previous_active_override"
+                if override_row
+                else "registry_or_disk_truth"
+            ),
+            "previous_override": {
+                "exists": bool(override_row),
+                "redacted_artifact_id": (
+                    override_row["previous_override_redacted_artifact_id"]
+                    if override_row
+                    else None
+                ),
+                "active_artifact_path": (
+                    override_row["active_artifact_path"]
+                    if override_row
+                    else None
+                ),
+                "active_artifact_hash": (
+                    override_row["active_artifact_hash"]
+                    if override_row
+                    else None
+                ),
+                "override_created_utc": (
+                    override_row["previous_override_created_utc"]
+                    if override_row
+                    else None
+                ),
+                "profile": (
+                    override_row["previous_override_profile"]
+                    if override_row
+                    else None
+                ),
+                "plan_id": (
+                    override_row["previous_override_plan_id"]
+                    if override_row
+                    else None
+                ),
+                "approval_id": (
+                    override_row["previous_override_approval_id"]
+                    if override_row
+                    else None
+                ),
+                "ruleset_version": (
+                    override_row["previous_override_ruleset_version"]
+                    if override_row
+                    else None
+                ),
+                "ruleset_hash": (
+                    override_row["previous_override_ruleset_hash"]
+                    if override_row
+                    else None
+                ),
+                "artifact_path": (
+                    override_row["previous_override_artifact_path"]
+                    if override_row
+                    else None
+                ),
+                "artifact_hash": (
+                    override_row["previous_override_artifact_hash"]
+                    if override_row
+                    else None
+                ),
+                "redacted_created_utc": (
+                    override_row["previous_override_redacted_created_utc"]
+                    if override_row
+                    else None
+                ),
+            },
         }
 
         if original_chunking is not None:
