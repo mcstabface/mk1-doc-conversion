@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import streamlit as st
 from pathlib import Path
+
+import streamlit as st
 
 from app.config import AppConfig
 from app.contracts.redaction import (
@@ -39,6 +40,7 @@ def render(config: AppConfig) -> None:
         st.session_state["redaction_approval_summary"] = None
         st.session_state["redaction_preview_summary"] = None
         st.session_state["redaction_commit_summary"] = None
+        st.session_state["redaction_selected_artifact_label"] = None
 
     artifacts = service.list_source_artifacts_for_run(run_id)
     if not artifacts:
@@ -85,9 +87,30 @@ def render(config: AppConfig) -> None:
         f"{a['artifact_id']} | {a['logical_path']}": a
         for a in eligible_artifacts
     }
-    selected_artifact_labels = st.multiselect(
-        "Select source artifacts",
-        list(artifact_options.keys()),
+    artifact_labels = list(artifact_options.keys())
+
+    default_artifact_label = artifact_labels[0]
+    selected_artifact_label = st.selectbox(
+        "Select source artifact",
+        artifact_labels,
+        index=0,
+    )
+    st.session_state["redaction_selected_artifact_label"] = selected_artifact_label
+
+    selected_artifact = artifact_options[selected_artifact_label]
+    selected_artifact_id = int(selected_artifact["artifact_id"])
+
+    st.markdown("### Selected artifact")
+    st.dataframe(
+        [
+            {
+                "artifact_id": selected_artifact.get("artifact_id"),
+                "logical_path": selected_artifact.get("logical_path"),
+                "source_type": selected_artifact.get("source_type"),
+                "active_truth_artifact_path": selected_artifact.get("active_truth_artifact_path"),
+            }
+        ],
+        width="stretch",
     )
 
     profile = st.selectbox("Profile", ["business_sensitive"], index=0)
@@ -104,28 +127,38 @@ def render(config: AppConfig) -> None:
         st.session_state["redaction_commit_summary"] = None
 
     if st.button("Create plan", width="stretch"):
-        if not selected_artifact_labels:
-            st.error("Select at least one source artifact.")
-        else:
-            artifact_ids = [int(artifact_options[label]["artifact_id"]) for label in selected_artifact_labels]
-            plan = service.create_plan(
-                RedactionPlanRequest(
-                    run_id=run_id,
-                    profile=profile,
-                    ruleset_version=ruleset_version,
-                    ruleset_hash=ruleset_hash,
-                    artifact_ids=artifact_ids,
-                )
+        plan = service.create_plan(
+            RedactionPlanRequest(
+                run_id=run_id,
+                profile=profile,
+                ruleset_version=ruleset_version,
+                ruleset_hash=ruleset_hash,
+                artifact_ids=[selected_artifact_id],
             )
-            st.session_state["redaction_plan_summary"] = plan
-            st.session_state["redaction_approval_summary"] = None
-            st.session_state["redaction_preview_summary"] = None
-            st.session_state["redaction_commit_summary"] = None
+        )
+        st.session_state["redaction_plan_summary"] = plan
+        st.session_state["redaction_approval_summary"] = None
+        st.session_state["redaction_preview_summary"] = None
+        st.session_state["redaction_commit_summary"] = None
 
     plan = st.session_state["redaction_plan_summary"]
     if plan is not None:
         st.markdown("### Plan")
-        st.write(plan)
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Plan ID", str(plan.plan_id))
+        c2.metric("Run ID", str(plan.run_id))
+        c3.metric("Status", plan.status)
+        c4.metric("Suggestions", str(plan.suggestions_created))
+
+        st.markdown("#### Category counts")
+        st.dataframe(
+            [
+                {"category": category, "count": count}
+                for category, count in plan.category_counts.items()
+            ],
+            width="stretch",
+        )
 
         approval_confirm = st.checkbox(
             "I approve this redaction plan for preview/commit.",
@@ -149,79 +182,84 @@ def render(config: AppConfig) -> None:
     approval = st.session_state["redaction_approval_summary"]
     if approval is not None:
         st.markdown("### Approval")
-        st.write(approval)
 
-        single_artifact_label = st.selectbox(
-            "Preview / commit artifact",
-            selected_artifact_labels if selected_artifact_labels else [],
-        )
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Approval ID", str(approval.approval_id))
+        c2.metric("Plan ID", str(approval.plan_id))
+        c3.metric("Status", approval.status)
 
-        if single_artifact_label:
-            source_artifact_id = int(artifact_options[single_artifact_label]["artifact_id"])
+        source_artifact_id = selected_artifact_id
 
-            if st.button("Generate preview", width="stretch"):
-                preview = service.get_preview(
-                    RedactionPreviewRequest(
+        if st.button("Generate preview", width="stretch"):
+            preview = service.get_preview(
+                RedactionPreviewRequest(
+                    source_artifact_id=source_artifact_id,
+                    profile=profile,
+                    ruleset_version=ruleset_version,
+                    ruleset_hash=ruleset_hash,
+                    plan_id=plan.plan_id,
+                    approval_id=approval.approval_id,
+                )
+            )
+            st.session_state["redaction_preview_summary"] = preview
+            st.session_state["redaction_commit_summary"] = None
+
+        preview = st.session_state["redaction_preview_summary"]
+        if preview is not None:
+            st.markdown("### Preview")
+            st.write(preview.status)
+
+            preview_doc = preview.document
+            redaction_meta = preview_doc.get("redaction", {})
+            text_content = preview_doc.get("text_content", "")
+
+            st.markdown("#### Redaction metadata")
+            st.json(redaction_meta)
+
+            st.markdown("#### Preview text")
+            st.text_area(
+                "Preview text",
+                value=text_content[:2000],
+                height=300,
+                disabled=True,
+                label_visibility="collapsed",
+            )
+
+            default_output = service.build_default_output_path(
+                source_artifact_id=source_artifact_id,
+                profile=profile,
+                plan_id=plan.plan_id,
+            )
+            output_path = st.text_input(
+                "Commit artifact output path",
+                value=str(default_output),
+            )
+
+            if st.button("Commit redaction", width="stretch"):
+                commit = service.commit(
+                    RedactionCommitRequest(
                         source_artifact_id=source_artifact_id,
                         profile=profile,
                         ruleset_version=ruleset_version,
                         ruleset_hash=ruleset_hash,
                         plan_id=plan.plan_id,
                         approval_id=approval.approval_id,
+                        artifact_output_path=Path(output_path).resolve(),
                     )
                 )
-                st.session_state["redaction_preview_summary"] = preview
-                st.session_state["redaction_commit_summary"] = None
-
-            preview = st.session_state["redaction_preview_summary"]
-            if preview is not None:
-                st.markdown("### Preview")
-                st.write(preview.status)
-
-                preview_doc = preview.document
-                redaction_meta = preview_doc.get("redaction", {})
-                text_content = preview_doc.get("text_content", "")
-
-                st.markdown("#### Redaction metadata")
-                st.json(redaction_meta)
-
-                st.markdown("#### Preview text")
-                st.text_area(
-                    "Preview text",
-                    value=text_content[:2000],
-                    height=300,
-                    disabled=True,
-                    label_visibility="collapsed",
-                )
-
-                default_output = service.build_default_output_path(
-                    source_artifact_id=source_artifact_id,
-                    profile=profile,
-                    plan_id=plan.plan_id,
-                )
-                output_path = st.text_input(
-                    "Commit artifact output path",
-                    value=str(default_output),
-                )
-
-                if st.button("Commit redaction", width="stretch"):
-                    commit = service.commit(
-                        RedactionCommitRequest(
-                            source_artifact_id=source_artifact_id,
-                            profile=profile,
-                            ruleset_version=ruleset_version,
-                            ruleset_hash=ruleset_hash,
-                            plan_id=plan.plan_id,
-                            approval_id=approval.approval_id,
-                            artifact_output_path=Path(output_path).resolve(),
-                        )
-                    )
-                    st.session_state["redaction_commit_summary"] = commit
+                st.session_state["redaction_commit_summary"] = commit
 
     commit = st.session_state["redaction_commit_summary"]
     if commit is not None:
         st.markdown("### Commit")
-        st.write(commit)
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Source Artifact ID", str(commit.source_artifact_id))
+        c2.metric("Redacted Artifact ID", str(commit.redacted_artifact_id))
+        c3.metric("Status", commit.status)
+
+        st.write(f"Artifact path: `{commit.artifact_path}`")
+        st.write(f"Artifact hash: `{commit.artifact_hash}`")
 
         truth_state = service.get_truth_override_state(commit.source_artifact_id)
         st.markdown("### Active truth override")
