@@ -163,19 +163,18 @@ class RedactionCommitExpert(BaseExpert):
 
             redacted_artifact_id = cursor.lastrowid
 
-            existing = cursor.execute(
+            previous_override = cursor.execute(
                 """
-                SELECT redacted_artifact_id
+                SELECT
+                    redacted_artifact_id,
+                    active_artifact_path,
+                    active_artifact_hash,
+                    created_utc
                 FROM artifact_truth_overrides
                 WHERE source_artifact_id = ?
                 """,
                 (source_artifact_id,),
             ).fetchone()
-
-            if existing:
-                raise RuntimeError(
-                    f"Commit blocked: active redaction already exists for source_artifact_id={source_artifact_id}."
-                )
 
             cursor.execute(
                 """
