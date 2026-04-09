@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.request import Request, urlopen
+import json
 
 import streamlit as st
 
@@ -29,6 +31,35 @@ def _list_recent_chunk_files(artifact_root: Path, limit: int = 25) -> list[str]:
     return [str(p.resolve()) for p in files[:limit]]
 
 
+def _run_embedding_health_check(endpoint: str, model: str) -> dict:
+    payload = {"model": model, "input": ["hello world"]}
+
+    req = Request(
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+
+    with urlopen(req, timeout=30) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+
+    embeddings = data.get("embeddings")
+    if not isinstance(embeddings, list) or len(embeddings) != 1:
+        raise ValueError("Health check expected exactly 1 embedding in 'embeddings'.")
+
+    vector = embeddings[0]
+    if not isinstance(vector, list) or not vector:
+        raise ValueError("Health check returned an empty embedding vector.")
+
+    if not all(isinstance(x, (int, float)) for x in vector):
+        raise ValueError("Health check returned a non-numeric embedding vector.")
+
+    return {
+        "embedding_count": len(embeddings),
+        "embedding_dim": len(vector),
+    }
+
+
 def render(config: AppConfig) -> None:
     st.subheader("Deterministic Ingestion")
 
@@ -42,6 +73,8 @@ def render(config: AppConfig) -> None:
         st.session_state["ingestion_rechunk_batch_results"] = None
     if "ingestion_embedding_summary" not in st.session_state:
         st.session_state["ingestion_embedding_summary"] = None
+    if "ingestion_embedding_health_check" not in st.session_state:
+        st.session_state["ingestion_embedding_health_check"] = None
     if "ingestion_workflow_stage" not in st.session_state:
         st.session_state["ingestion_workflow_stage"] = "ingest"
     if "ingestion_selected_search_context_path" not in st.session_state:
@@ -100,6 +133,7 @@ def render(config: AppConfig) -> None:
             st.session_state["ingestion_rechunk_summary"] = None
             st.session_state["ingestion_rechunk_batch_results"] = None
             st.session_state["ingestion_embedding_summary"] = None
+            st.session_state["ingestion_embedding_health_check"] = None
             st.session_state["ingestion_workflow_stage"] = "ingestion_result"
 
             recent_search_context = _list_recent_search_context_files(artifact_root_path, limit=25)
@@ -393,7 +427,7 @@ def render(config: AppConfig) -> None:
         )
         embedding_endpoint = st.text_input(
             "Embedding endpoint",
-            value="http://localhost:11434/api/embeddings",
+            value="http://localhost:11434/api/embed",
         )
         embedding_batch_size = st.number_input(
             "Embedding batch size",
@@ -401,6 +435,34 @@ def render(config: AppConfig) -> None:
             value=64,
             step=1,
         )
+
+        health_col_1, health_col_2 = st.columns([1, 2])
+        with health_col_1:
+            if st.button("Run embedding health check", width="stretch"):
+                try:
+                    st.session_state["ingestion_embedding_health_check"] = {
+                        "status": "COMPLETE",
+                        **_run_embedding_health_check(
+                            endpoint=embedding_endpoint,
+                            model=embedding_model,
+                        ),
+                    }
+                except Exception as exc:
+                    st.session_state["ingestion_embedding_health_check"] = {
+                        "status": "FAILED",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+
+        health_result = st.session_state["ingestion_embedding_health_check"]
+        if health_result is not None:
+            if health_result.get("status") == "COMPLETE":
+                st.success(
+                    f"Embedding health check passed. "
+                    f"count={health_result['embedding_count']}, "
+                    f"dim={health_result['embedding_dim']}"
+                )
+            else:
+                st.error(f"Embedding health check failed: {health_result.get('error', '')}")
 
         if st.button("Generate embeddings", width="stretch"):
             if not effective_chunk_paths:
