@@ -9,6 +9,16 @@ from app.contracts.ingestion import IngestionRunRequest
 from app.services.ingestion_service import IngestionService
 
 
+def _list_recent_chunk_files(artifact_root: Path, limit: int = 25) -> list[str]:
+    chunk_dir = artifact_root / "chunks"
+    if not chunk_dir.exists():
+        return []
+
+    files = [p for p in chunk_dir.glob("*.json") if p.is_file()]
+    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return [str(p.resolve()) for p in files[:limit]]
+
+
 def render(config: AppConfig) -> None:
     st.subheader("Deterministic Ingestion")
 
@@ -169,15 +179,30 @@ def render(config: AppConfig) -> None:
 
         st.markdown("#### Generate embeddings")
 
+        recent_chunk_files = _list_recent_chunk_files(Path(artifact_root).resolve(), limit=25)
+
         default_chunk_input = ""
         if rechunk_summary is not None:
             default_chunk_input = str(rechunk_summary["chunk_artifact_path"])
+
+        recent_chunk_options = [""] + recent_chunk_files
+        selected_recent_chunk = st.selectbox(
+            "Recent chunk files",
+            recent_chunk_options,
+            index=0,
+            format_func=lambda x: "Select a recent chunk file..." if x == "" else x,
+        )
 
         embedding_chunk_artifact_path = st.text_input(
             "Chunk artifact path",
             value=default_chunk_input,
             placeholder="Paste a search_context_chunk_collection JSON path here",
         )
+
+        if selected_recent_chunk:
+            embedding_chunk_artifact_path = selected_recent_chunk
+
+        st.caption("You can paste a path manually or pick a recent chunk file above.")
 
         embedding_output_dir = st.text_input(
             "Embedding output directory",
@@ -199,12 +224,14 @@ def render(config: AppConfig) -> None:
         )
 
         if st.button("Generate embeddings", width="stretch"):
-            if not embedding_chunk_artifact_path.strip():
+            effective_chunk_artifact_path = embedding_chunk_artifact_path.strip()
+
+            if not effective_chunk_artifact_path:
                 st.error("Chunk artifact path is required.")
             else:
                 try:
                     st.session_state["ingestion_embedding_summary"] = service.generate_embeddings_for_chunk_artifact(
-                        chunk_artifact_path=Path(embedding_chunk_artifact_path).resolve(),
+                        chunk_artifact_path=Path(effective_chunk_artifact_path).resolve(),
                         output_dir=Path(embedding_output_dir).resolve(),
                         embedding_model=embedding_model,
                         endpoint=embedding_endpoint,
